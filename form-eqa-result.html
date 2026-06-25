@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#f7f6f2; --card:#fff; --t1:#2C2C2A; --t2:#5F5E5A; --t3:#9b9a94;
+    --line:rgba(0,0,0,.14); --accent:#0C447C; --accent-bg:#E6F1FB;
+    --ok:#0F6E56; --ok-bg:#E1F5EE; --warn:#854F0B; --warn-bg:#FAEEDA; --bad:#791F1F; --bad-bg:#FCEBEB;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
+  h1{font-size:19px;font-weight:600;margin:0 0 2px;}
+  .sub{color:var(--t2);font-size:13px;margin:0 0 16px;}
+  .card{background:var(--card);border:.5px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 10px;color:var(--accent);}
+  label{display:block;font-size:12px;color:var(--t2);margin:0 0 3px;}
+  input,select{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;background:#fff;}
+  input:focus,select:focus{outline:2px solid var(--accent-bg);border-color:var(--accent);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{margin-bottom:10px;}
+  table{width:100%;border-collapse:collapse;margin-top:4px;}
+  th,td{text-align:left;padding:6px 5px;border-bottom:.5px solid var(--line);font-size:13px;vertical-align:middle;}
+  th{color:var(--t3);font-weight:500;font-size:11px;}
+  td input{padding:6px 7px;}
+  .z-input{max-width:90px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:500;white-space:nowrap;}
+  .b-ok{background:var(--ok-bg);color:var(--ok);} .b-warn{background:var(--warn-bg);color:var(--warn);}
+  .b-bad{background:var(--bad-bg);color:var(--bad);} .b-none{background:#eee;color:var(--t3);}
+  button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:15px;font-weight:500;cursor:pointer;width:100%;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .msg{padding:11px 13px;border-radius:8px;margin-bottom:14px;font-size:13px;display:none;}
+  .msg.show{display:block;}
+  .msg.err{background:var(--bad-bg);color:var(--bad);} .msg.ok{background:var(--ok-bg);color:var(--ok);}
+  .hint{font-size:11px;color:var(--t3);}
+  .flagged{margin-top:8px;}
+  .flagged li{color:var(--bad);}
+  #loading{color:var(--t2);padding:20px;text-align:center;}
+  @media (max-width:520px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>บันทึกผล EQA/ILC</h1>
+  <p class="sub">กรอก z-score จากใบรายงาน → ระบบตัดเกรดอัตโนมัติ · กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล</p>
+
+  <div id="loading">⏳ กำลังโหลดข้อมูล...</div>
+
+  <div id="app" style="display:none;">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>โหมดแก้ไข</h2>
+      <div class="field">
+        <label>Edit Token (รหัสปลดล็อกการบันทึก)</label>
+        <input type="password" id="token" placeholder="ใส่ Edit Token เพื่อบันทึก">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ข้อมูลรายงาน (header)</h2>
+      <div class="field">
+        <label>Program *</label>
+        <select id="program"></select>
+      </div>
+      <div class="grid">
+        <div class="field"><label>Trial No.</label><input id="trial" placeholder="เช่น 356/2026"></div>
+        <div class="field"><label>Participant ID</label><input id="participant"></div>
+        <div class="field"><label>วันที่ออกผล (Issue)</label><input type="date" id="issue"></div>
+        <div class="field"><label>เครื่องที่ใช้ส่งผล</label><select id="instrument"></select></div>
+      </div>
+      <div class="field"><label>ผู้ทบทวน (Reviewer)</label><input id="reviewer"></div>
+    </div>
+
+    <div class="card">
+      <h2>ผลราย analyte — กรอก z-score</h2>
+      <p class="hint">กรอกเฉพาะ analyte ที่มีผล · ปล่อยว่าง = ไม่บันทึก · เกรดขึ้นสดตามที่พิมพ์</p>
+      <table>
+        <thead>
+          <tr><th>Analyte</th><th id="th-sample" style="display:none;">Sample</th><th>Unit</th><th>ค่ากลาง</th><th>การกระจาย</th><th>z-score</th><th>เกรด</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <button id="submit">บันทึกผล</button>
+  </div>
+</div>
+
+<script>
+  // ===== API config (ADR-0005 — external host + fetch แบบ BacBuD) =====
+  // ฟอร์ม host ภายนอก (GitHub Pages) → fetch POST /exec (ไม่ใส่ header = simple request ไม่มี preflight)
+  // เปิดไฟล์ในเครื่อง (URL ยัง placeholder) → DEMO mock · /exec ไม่ใช่ secret commit ได้
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQTFsGv2JhlhjF7-VjWw-hGI1eCcsj4Pv_FvRlKTFfuA0Cdb8Nnj6PJPi8Yhg42ZpH/exec';  // ← แทนด้วย /exec จริงในไฟล์ที่ host บน gh-pages
+  var USE_DEMO = APPS_SCRIPT_URL.indexOf('http') !== 0;
+
+  var DEMO_BAND = [{upper:2,grade:'Acceptable'},{upper:3,grade:'Warning'},{upper:9999,grade:'Unacceptable'}];
+  var DEMO = {
+    getResultFormData: function(){
+      return { programs:['EQAC','B-EQAM','EQAH','EQAT'],
+        analytes:{ EQAC:['Albumin','ALT (SGPT)','Calcium Total','Glucose','Sodium'], 'B-EQAM':['WBC','RBC','Hb','PLT'], EQAH:['Total T3','Free T4','TSH'], EQAT:['AFP','CEA','PSA'] },
+        samples:{ EQAC:1,'B-EQAM':1,EQAH:2,EQAT:2 },
+        instruments:['BS600','cobas e 402','DIRUI CS-2000'], band:DEMO_BAND, appUrl:'' };
+    },
+    submitEQAResult: function(p){
+      var flagged=(p.analytes||[]).filter(function(a){return Math.abs(Number(a.ZScore))>2;})
+        .map(function(a){ return {analyte:a.Analyte, sample:a.Sample, z:a.ZScore, grade:(Math.abs(a.ZScore)>=3?'Unacceptable':'Warning')}; });
+      return { reportId:'EQAR-DEMO-001', count:(p.analytes||[]).length, flagged:flagged };
+    }
+  };
+
+  /** เรียก backend — 2 โหมด: DEMO (เปิดไฟล์ในเครื่อง) → fetch /exec (prod, host ภายนอก) */
+  async function api(action, payload){
+    if(USE_DEMO) return DEMO[action](payload||{});
+    // ห้ามใส่ header Content-Type → browser ส่ง text/plain → ไม่เกิด CORS preflight (BacBuD pattern)
+    var res = await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify(Object.assign({action:action}, payload||{})) });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var j = await res.json();
+    if(!j.success) throw new Error(j.error||'unknown error');
+    return j.data;
+  }
+
+  /** URL หน้า corrective (prefill) — ไฟล์พี่น้องบน host เดียวกัน (gh-pages) หรือเปิดในเครื่อง */
+  function correctiveUrl(qs){
+    return 'form-eqa.html?' + qs;
+  }
+
+  var DATA = null;   // ข้อมูลจาก getResultFormData
+  var BAND = [];     // [{upper, grade}]
+
+  // ---- โหลดข้อมูลตั้งต้น ----
+  api('getResultFormData')
+    .then(onData)
+    .catch(function(e){ document.getElementById('loading').innerHTML = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
+
+  function onData(d){
+    DATA = d; BAND = d.band || [];
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    fillSelect('program', d.programs, 'เลือก Program');
+    fillSelect('instrument', d.instruments, '— ไม่ระบุ —');
+    document.getElementById('program').addEventListener('change', buildRows);
+  }
+
+  function fillSelect(id, items, placeholder){
+    var s = document.getElementById(id);
+    s.innerHTML = '<option value="">' + placeholder + '</option>';
+    (items||[]).forEach(function(v){
+      var o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o);
+    });
+  }
+
+  // ---- สร้างแถว analyte ตาม Program ----
+  function buildRows(){
+    var p = document.getElementById('program').value;
+    var tbody = document.getElementById('rows');
+    tbody.innerHTML = '';
+    if(!p){ document.getElementById('th-sample').style.display='none'; return; }
+    var analytes = DATA.analytes[p] || [];
+    var nSample = DATA.samples[p] || 1;
+    document.getElementById('th-sample').style.display = nSample > 1 ? '' : 'none';
+
+    analytes.forEach(function(name){
+      for(var s=1; s<=nSample; s++){
+        var tr = document.createElement('tr');
+        var sampleCell = nSample > 1 ? '<td>Sample '+s+'</td>' : '';
+        tr.innerHTML =
+          '<td>'+name+'</td>' + sampleCell +
+          '<td><input class="unit" style="max-width:70px" placeholder="unit"></td>' +
+          '<td><input class="compcenter" type="number" step="any" inputmode="decimal" style="max-width:80px" placeholder="Mean/Median"></td>' +
+          '<td><input class="compspread" type="number" step="any" inputmode="decimal" style="max-width:80px" placeholder="SD/IQR"></td>' +
+          '<td><input class="z-input zscore" type="number" step="any" inputmode="decimal"></td>' +
+          '<td><span class="badge b-none">—</span></td>';
+        tr.dataset.analyte = name;
+        tr.dataset.sample = nSample > 1 ? ('Sample '+s) : '';
+        tbody.appendChild(tr);
+        var zi = tr.querySelector('.zscore');
+        // หาแถวจาก currentTarget เสมอ — กัน closure จับตัวแปร tr ตัวเดียวกันใน analyte ที่มี 2 samples
+        zi.addEventListener('input', function(e){ updateBadge(e.currentTarget.closest('tr')); });
+      }
+    });
+  }
+
+  // ---- คำนวณ grade preview (เกณฑ์เดียวกับ server: |z|≤cut1 ok, ≥cut2 bad, else warn) ----
+  function gradeOf(z){
+    var a = Math.abs(Number(z));
+    if(isNaN(a) || BAND.length<3) return null;
+    var cut1 = BAND[0].upper, cut2 = BAND[1].upper;
+    if(a<=cut1) return BAND[0].grade;
+    if(a>=cut2) return BAND[BAND.length-1].grade;
+    return BAND[1].grade;
+  }
+  function badgeClass(g){
+    if(g==='Acceptable') return 'b-ok';
+    if(g==='Warning') return 'b-warn';
+    if(g==='Unacceptable') return 'b-bad';
+    return 'b-none';
+  }
+  function updateBadge(tr){
+    var z = tr.querySelector('.zscore').value;
+    var b = tr.querySelector('.badge');
+    if(z===''){ b.className='badge b-none'; b.textContent='—'; return; }
+    var g = gradeOf(z);
+    b.className = 'badge ' + badgeClass(g);
+    b.textContent = g || '?';
+  }
+
+  // ---- บันทึก ----
+  document.getElementById('submit').addEventListener('click', function(){
+    var token = document.getElementById('token').value;
+    var program = document.getElementById('program').value;
+    if(!token) return showMsg('err','กรุณาใส่ Edit Token ก่อนบันทึก');
+    if(!program) return showMsg('err','กรุณาเลือก Program');
+
+    var analytes = [];
+    var rows = document.querySelectorAll('#rows tr');
+    for(var i=0;i<rows.length;i++){
+      var z = rows[i].querySelector('.zscore').value;
+      if(z==='') continue; // ข้าม analyte ที่ไม่กรอก
+      analytes.push({
+        Analyte: rows[i].dataset.analyte,
+        Sample: rows[i].dataset.sample,
+        Unit: rows[i].querySelector('.unit').value,
+        CompCenter: rows[i].querySelector('.compcenter').value,  // optional · backend optNum_ จัดการ ''/non-number
+        CompSpread: rows[i].querySelector('.compspread').value,
+        ZScore: Number(z)
+      });
+    }
+    if(!analytes.length) return showMsg('err','ยังไม่ได้กรอก z-score ของ analyte ใดเลย');
+
+    var header = {
+      Program: program,
+      TrialNo: document.getElementById('trial').value,
+      ParticipantID: document.getElementById('participant').value,
+      IssueDate: document.getElementById('issue').value,
+      Instrument: document.getElementById('instrument').value,
+      Reviewer: document.getElementById('reviewer').value
+    };
+
+    var btn = document.getElementById('submit');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    api('submitEQAResult', { header: header, analytes: analytes, editToken: token })
+      .then(onSaved)
+      .catch(function(e){ btn.disabled=false; btn.textContent='บันทึกผล'; showMsg('err','บันทึกไม่สำเร็จ: '+e.message); });
+  });
+
+  function onSaved(res){
+    var btn = document.getElementById('submit');
+    btn.disabled=false; btn.textContent='บันทึกผล';
+    var html = '✅ บันทึกแล้ว: <b>'+res.reportId+'</b> ('+res.count+' analyte)';
+    if(res.flagged && res.flagged.length){
+      var program = document.getElementById('program').value;
+      var trial = document.getElementById('trial').value;
+      html += '<div class="flagged">⚠️ analyte ที่ไม่ผ่าน (|z|>2) — ควรเปิด corrective action:<ul>';
+      res.flagged.forEach(function(f){
+        var qs = 'program='+encodeURIComponent(program)
+          + '&trial='+encodeURIComponent(trial)
+          + '&problem='+encodeURIComponent(f.analyte)
+          + '&z='+encodeURIComponent(f.z);
+        var link = ' — <a href="'+correctiveUrl(qs)+'" target="_top">เปิด corrective →</a>';
+        html += '<li>'+f.analyte+(f.sample?(' ('+f.sample+')'):'')+' — z='+f.z+' → '+f.grade+link+'</li>';
+      });
+      html += '</ul></div>';
+    } else {
+      html += ' — ผ่านทุกตัว 🎉';
+    }
+    showMsg('ok', html);
+    // ล้าง z + เกรด เตรียมกรอกใบถัดไป (คง header ไว้)
+    document.querySelectorAll('#rows .zscore').forEach(function(z){ z.value=''; });
+    document.querySelectorAll('#rows .badge').forEach(function(b){ b.className='badge b-none'; b.textContent='—'; });
+    window.scrollTo(0,0);
+  }
+
+  function showMsg(type, html){
+    var m = document.getElementById('msg');
+    m.className = 'msg show ' + type;
+    m.innerHTML = html;
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>
