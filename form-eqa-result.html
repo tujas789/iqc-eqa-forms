@@ -81,7 +81,7 @@
       <p class="hint">กรอกเฉพาะ analyte ที่มีผล · ปล่อยว่าง = ไม่บันทึก · เกรดขึ้นสดตามที่พิมพ์</p>
       <table>
         <thead>
-          <tr><th>Analyte</th><th id="th-sample" style="display:none;">Sample</th><th>Unit</th><th>ค่ากลาง</th><th>การกระจาย</th><th>z-score</th><th>เกรด</th></tr>
+          <tr><th>Analyte</th><th id="th-sample" style="display:none;">Sample</th><th>Unit</th><th>ผลของท่าน</th><th>ค่ากลาง</th><th>การกระจาย</th><th>z-score</th><th>%Dev</th><th>เกรด</th></tr>
         </thead>
         <tbody id="rows"></tbody>
       </table>
@@ -104,7 +104,7 @@
       return { programs:['EQAC','B-EQAM','EQAH','EQAT'],
         analytes:{ EQAC:['Albumin','ALT (SGPT)','Calcium Total','Glucose','Sodium'], 'B-EQAM':['WBC','RBC','Hb','PLT'], EQAH:['Total T3','Free T4','TSH'], EQAT:['AFP','CEA','PSA'] },
         samples:{ EQAC:1,'B-EQAM':1,EQAH:2,EQAT:2 },
-        instruments:['BS600','cobas e 402','DIRUI CS-2000'], band:DEMO_BAND, appUrl:'' };
+        instruments:['BS600','cobas e 402','DIRUI CS-2000'], band:DEMO_BAND };
     },
     submitEQAResult: function(p){
       var flagged=(p.analytes||[]).filter(function(a){return Math.abs(Number(a.ZScore))>2;})
@@ -135,7 +135,7 @@
   // ---- โหลดข้อมูลตั้งต้น ----
   api('getResultFormData')
     .then(onData)
-    .catch(function(e){ document.getElementById('loading').innerHTML = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
+    .catch(function(e){ document.getElementById('loading').textContent = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
 
   function onData(d){
     DATA = d; BAND = d.band || [];
@@ -167,15 +167,20 @@
 
     analytes.forEach(function(name){
       for(var s=1; s<=nSample; s++){
+        // สร้างแถวด้วย DOM API ทั้งหมด — ไม่ใช้ innerHTML แทรก name จาก Config (กัน HTML injection + pattern เดียวกับ flagged list)
         var tr = document.createElement('tr');
-        var sampleCell = nSample > 1 ? '<td>Sample '+s+'</td>' : '';
-        tr.innerHTML =
-          '<td>'+name+'</td>' + sampleCell +
-          '<td><input class="unit" style="max-width:70px" placeholder="unit"></td>' +
-          '<td><input class="compcenter" type="number" step="any" inputmode="decimal" style="max-width:80px" placeholder="Mean/Median"></td>' +
-          '<td><input class="compspread" type="number" step="any" inputmode="decimal" style="max-width:80px" placeholder="SD/IQR"></td>' +
-          '<td><input class="z-input zscore" type="number" step="any" inputmode="decimal"></td>' +
-          '<td><span class="badge b-none">—</span></td>';
+        tr.appendChild(cellText(name));                              // Analyte
+        if(nSample > 1) tr.appendChild(cellText('Sample '+s));       // Sample (เฉพาะ scheme ที่มี >1)
+        tr.appendChild(cellInput('unit', 'text', 'unit', 70));       // Unit
+        tr.appendChild(cellInput('yourresult', 'number', 'ผลที่ได้', 90)); // YourResult (optional)
+        tr.appendChild(cellInput('compcenter', 'number', 'Mean/Median', 80)); // CompCenter (optional)
+        tr.appendChild(cellInput('compspread', 'number', 'SD/IQR', 80));      // CompSpread (optional)
+        tr.appendChild(cellInput('z-input zscore', 'number', '', 0));         // ZScore
+        tr.appendChild(cellInput('percentdev', 'number', '%', 70));           // PercentDev (optional)
+        var gradeTd = document.createElement('td');
+        var badge = document.createElement('span'); badge.className = 'badge b-none'; badge.textContent = '—';
+        gradeTd.appendChild(badge); tr.appendChild(gradeTd);                  // เกรด
+
         tr.dataset.analyte = name;
         tr.dataset.sample = nSample > 1 ? ('Sample '+s) : '';
         tbody.appendChild(tr);
@@ -184,6 +189,21 @@
         zi.addEventListener('input', function(e){ updateBadge(e.currentTarget.closest('tr')); });
       }
     });
+  }
+
+  /** <td> ข้อความล้วน (textContent — ปลอดภัยกับค่าจาก Config) */
+  function cellText(text){
+    var td = document.createElement('td'); td.textContent = text; return td;
+  }
+  /** <td><input ...> — type 'number' จะใส่ step/inputmode ให้อัตโนมัติ · maxWidth 0 = ไม่จำกัด */
+  function cellInput(cls, type, placeholder, maxWidth){
+    var td = document.createElement('td');
+    var inp = document.createElement('input');
+    inp.className = cls;
+    if(type === 'number'){ inp.type = 'number'; inp.step = 'any'; inp.inputMode = 'decimal'; }
+    if(placeholder) inp.placeholder = placeholder;
+    if(maxWidth) inp.style.maxWidth = maxWidth + 'px';
+    td.appendChild(inp); return td;
   }
 
   // ---- คำนวณ grade preview (เกณฑ์เดียวกับ server: |z|≤cut1 ok, ≥cut2 bad, else warn) ----
@@ -226,9 +246,11 @@
         Analyte: rows[i].dataset.analyte,
         Sample: rows[i].dataset.sample,
         Unit: rows[i].querySelector('.unit').value,
-        CompCenter: rows[i].querySelector('.compcenter').value,  // optional · backend optNum_ จัดการ ''/non-number
-        CompSpread: rows[i].querySelector('.compspread').value,
-        ZScore: Number(z)
+        YourResult: rows[i].querySelector('.yourresult').value,  // optional · backend optNum_ จัดการ ''/non-number
+        CompCenter: rows[i].querySelector('.compcenter').value,  // optional
+        CompSpread: rows[i].querySelector('.compspread').value,  // optional
+        ZScore: Number(z),
+        PercentDev: rows[i].querySelector('.percentdev').value   // optional
       });
     }
     if(!analytes.length) return showMsg('err','ยังไม่ได้กรอก z-score ของ analyte ใดเลย');
@@ -252,34 +274,48 @@
   function onSaved(res){
     var btn = document.getElementById('submit');
     btn.disabled=false; btn.textContent='บันทึกผล';
-    var html = '✅ บันทึกแล้ว: <b>'+res.reportId+'</b> ('+res.count+' analyte)';
+    // สร้างด้วย DOM API (ไม่ใช่ innerHTML) — f.analyte/program/trial มาจาก input/ผล backend
+    var m = document.getElementById('msg');
+    m.className = 'msg show ok';
+    m.textContent = '✅ บันทึกแล้ว: ' + res.reportId + ' (' + res.count + ' analyte)';
     if(res.flagged && res.flagged.length){
       var program = document.getElementById('program').value;
       var trial = document.getElementById('trial').value;
-      html += '<div class="flagged">⚠️ analyte ที่ไม่ผ่าน (|z|>2) — ควรเปิด corrective action:<ul>';
+      var box = document.createElement('div'); box.className = 'flagged';
+      box.appendChild(document.createTextNode('⚠️ analyte ที่ไม่ผ่าน (|z|>2) — ควรเปิด corrective action:'));
+      var ul = document.createElement('ul');
       res.flagged.forEach(function(f){
         var qs = 'program='+encodeURIComponent(program)
           + '&trial='+encodeURIComponent(trial)
           + '&problem='+encodeURIComponent(f.analyte)
           + '&z='+encodeURIComponent(f.z);
-        var link = ' — <a href="'+correctiveUrl(qs)+'" target="_top">เปิด corrective →</a>';
-        html += '<li>'+f.analyte+(f.sample?(' ('+f.sample+')'):'')+' — z='+f.z+' → '+f.grade+link+'</li>';
+        var li = document.createElement('li');
+        li.appendChild(document.createTextNode(
+          f.analyte + (f.sample?(' ('+f.sample+')'):'') + ' — z='+f.z+' → '+f.grade+' — '));
+        var a = document.createElement('a');
+        a.href = correctiveUrl(qs);   // qs ผ่าน encodeURIComponent ทุกส่วนแล้ว
+        a.target = '_top';
+        a.textContent = 'เปิด corrective →';
+        li.appendChild(a);
+        ul.appendChild(li);
       });
-      html += '</ul></div>';
+      box.appendChild(ul);
+      m.appendChild(box);
     } else {
-      html += ' — ผ่านทุกตัว 🎉';
+      m.appendChild(document.createTextNode(' — ผ่านทุกตัว 🎉'));
     }
-    showMsg('ok', html);
     // ล้าง z + เกรด เตรียมกรอกใบถัดไป (คง header ไว้)
     document.querySelectorAll('#rows .zscore').forEach(function(z){ z.value=''; });
     document.querySelectorAll('#rows .badge').forEach(function(b){ b.className='badge b-none'; b.textContent='—'; });
     window.scrollTo(0,0);
   }
 
-  function showMsg(type, html){
+  // render เป็น textContent เสมอ — กัน HTML injection จากค่า input ที่ปนใน error message
+  // (success ที่ต้องมี list/link สร้างด้วย DOM API ใน onSaved แทน ไม่ผ่านที่นี่)
+  function showMsg(type, text){
     var m = document.getElementById('msg');
     m.className = 'msg show ' + type;
-    m.innerHTML = html;
+    m.textContent = text;
     window.scrollTo(0,0);
   }
 </script>
