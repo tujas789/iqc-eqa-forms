@@ -74,6 +74,8 @@
         <div class="field"><label>เครื่องที่ใช้ส่งผล</label><select id="instrument"></select></div>
       </div>
       <div class="field"><label>ผู้ทบทวน (Reviewer)</label><input id="reviewer"></div>
+      <div class="field"><label>สรุปผลรวม (Overall Review)</label><input id="overallReview" placeholder="สรุปภาพรวมของรายงานนี้ (ถ้ามี)"></div>
+      <div class="field"><label>ลิงก์ไฟล์รายงาน (File URL)</label><input id="fileUrl" type="url" inputmode="url" placeholder="https://… (ถ้ามี)"></div>
     </div>
 
     <div class="card">
@@ -261,7 +263,9 @@
       ParticipantID: document.getElementById('participant').value,
       IssueDate: document.getElementById('issue').value,
       Instrument: document.getElementById('instrument').value,
-      Reviewer: document.getElementById('reviewer').value
+      Reviewer: document.getElementById('reviewer').value,
+      OverallReview: document.getElementById('overallReview').value,  // optional · backend default ''
+      FileURL: document.getElementById('fileUrl').value               // optional
     };
 
     var btn = document.getElementById('submit');
