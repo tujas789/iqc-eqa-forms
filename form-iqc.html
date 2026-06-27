@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#f7f6f2; --card:#fff; --t1:#2C2C2A; --t2:#5F5E5A; --t3:#9b9a94;
+    --line:rgba(0,0,0,.14); --accent:#0C447C; --accent-bg:#E6F1FB;
+    --ok:#0F6E56; --ok-bg:#E1F5EE; --warn:#854F0B; --warn-bg:#FAEEDA; --bad:#791F1F; --bad-bg:#FCEBEB;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
+  h1{font-size:19px;font-weight:600;margin:0 0 2px;}
+  .sub{color:var(--t2);font-size:13px;margin:0 0 16px;}
+  .card{background:var(--card);border:.5px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 2px;color:var(--accent);}
+  .card .iso{font-size:11px;color:var(--t3);margin:0 0 10px;}
+  label{display:block;font-size:12px;color:var(--t2);margin:0 0 3px;}
+  input,select,textarea{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;background:#fff;}
+  textarea{resize:vertical;min-height:54px;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-bg);border-color:var(--accent);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{margin-bottom:10px;}
+  .ca-group{margin-bottom:10px;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px;}
+  .chip{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t1);background:#fafafa;border:1px solid var(--line);border-radius:8px;padding:6px 9px;cursor:pointer;}
+  .chip input{width:auto;margin:0;}
+  button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:15px;font-weight:500;cursor:pointer;width:100%;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .msg{padding:11px 13px;border-radius:8px;margin-bottom:14px;font-size:13px;display:none;}
+  .msg.show{display:block;}
+  .msg.err{background:var(--bad-bg);color:var(--bad);} .msg.ok{background:var(--ok-bg);color:var(--ok);}
+  .hint{font-size:11px;color:var(--t3);margin:2px 0 0;}
+  #loading{color:var(--t2);padding:20px;text-align:center;}
+  @media (max-width:520px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>IQC Corrective Action — บันทึกเคสไม่ผ่าน</h1>
+  <p class="sub">เคส IQC (Internal QC) ที่ไม่อยู่ในเกณฑ์ + การแก้ไขตาม ISO 15189:2022 §8.7 · กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล</p>
+
+  <div id="loading">⏳ กำลังโหลดข้อมูล...</div>
+
+  <div id="app" style="display:none;">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>โหมดแก้ไข</h2>
+      <div class="field">
+        <label>Edit Token (รหัสปลดล็อกการบันทึก)</label>
+        <input type="password" id="token" placeholder="ใส่ PIN เพื่อบันทึกได้">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ข้อมูลเคส</h2>
+      <div class="grid">
+        <div class="field"><label>วันที่พบปัญหา *</label><input type="date" id="date"></div>
+        <div class="field"><label>การทดสอบ (Test) *</label><select id="test"></select></div>
+        <div class="field"><label>เครื่องวิเคราะห์ (Instrument)</label><select id="instrument"></select></div>
+        <div class="field"><label>Serial No.</label><input id="serialNo" placeholder="Serial เครื่อง"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>① สภาพปัญหา</h2>
+      <p class="iso">กฎ Westgard ที่ละเมิด + ประเภท error</p>
+      <div class="grid">
+        <div class="field"><label>MultiRule (กฎ Westgard)</label><select id="multiRule"></select></div>
+        <div class="field"><label>Level control ที่ผิด (ControlLevelAffected)</label><select id="controlLevelAffected"></select></div>
+        <div class="field"><label>ประเภทข้อผิดพลาด (ErrorType)</label><select id="errorType"></select></div>
+        <div class="field"><label>ต้องการทบทวน (NeedReview)</label><select id="needReview"></select></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>② ผลการทบทวน IQC</h2>
+      <p class="iso">ตรวจน้ำยา / control / calibration ว่าถูกต้องหรือไม่</p>
+      <div class="grid">
+        <div class="field"><label>ชนิดน้ำยา (ReagentType)</label><select id="reagentType"></select></div>
+        <div class="field"><label>การเก็บรักษาน้ำยา (ReagentStorage)</label><select id="reagentStorage"></select></div>
+        <div class="field"><label>ชนิด control (ControlType)</label><select id="controlType"></select></div>
+        <div class="field"><label>การเก็บรักษา control (ControlStorage)</label><select id="controlStorage"></select></div>
+        <div class="field"><label>สถานะ calibration (Calibration)</label><select id="calibration"></select></div>
+        <div class="field"><label>ชนิด Calibrator/Std. (CalibratorType)</label><select id="calibratorType"></select></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>③ ปฏิบัติการแก้ไข (Correction)</h2>
+      <p class="iso">ISO §8.7(a) — react / contain · เลือกได้หลายข้อต่อหมวด (ปิดงานต้องมีอย่างน้อย 1)</p>
+      <div class="ca-group"><label>หมวดน้ำยา (CA — Reagent)</label><div class="chips" id="caReagent"></div></div>
+      <div class="ca-group"><label>หมวด control (CA — Control)</label><div class="chips" id="caControl"></div></div>
+      <div class="ca-group"><label>หมวด calibration (CA — Calibration)</label><div class="chips" id="caCalibration"></div></div>
+      <div class="ca-group"><label>หมวดเครื่อง (CA — Instrument)</label><div class="chips" id="caInstrument"></div></div>
+      <div class="ca-group"><label>หมวดตัวอย่าง (CA — Sample)</label><div class="chips" id="caSample"></div></div>
+      <div class="field"><label>อื่นๆ ระบุ (CA — Other)</label><input id="caOther" placeholder="มาตรการแก้ไขอื่นที่ไม่อยู่ในหมวดข้างบน"></div>
+    </div>
+
+    <div class="card">
+      <h2>④ สาเหตุ + ขอบเขต + ผลกระทบผู้ป่วย</h2>
+      <p class="iso">ISO §8.7(a,b) — root cause + extent + risk</p>
+      <div class="field"><label>สาเหตุที่แท้จริง (Root cause)</label><textarea id="rootCause" placeholder="เช่น Control material เตรียมไว้นาน"></textarea></div>
+      <div class="field"><label>ตรวจขอบเขต — NC แบบเดียวกันเกิดที่อื่นไหม (SimilarNCCheck)</label><select id="similarNCCheck"></select></div>
+      <div class="field"><label>ผลกระทบต่อผู้ป่วย (PatientImpact)</label><select id="patientImpact"></select></div>
+      <div class="field" id="impactDetailWrap" style="display:none;"><label>การจัดการผลผู้ป่วย (PatientImpactDetail)</label><textarea id="patientImpactDetail" placeholder="เช่น ทบทวนผลย้อนหลังช่วงที่ IQC ตก / แจ้งแพทย์เรียกคืนผล"></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>⑤ สรุป / ทวนสอบ / ปิดงาน</h2>
+      <p class="iso">ISO §8.7(c,d) — corrective action + ทวนสอบประสิทธิผล · ปิดได้เมื่อ Effectiveness = ยืนยันได้ผล</p>
+      <div class="field"><label>สรุปผลการแก้ไข (ActionSummary)</label><textarea id="actionSummary" placeholder="เช่น ละลายและใช้ control ขวดใหม่"></textarea></div>
+      <div class="grid">
+        <div class="field"><label>ผลการแก้เฉพาะหน้า (ActionResult)</label><select id="actionResult"></select></div>
+        <div class="field"><label>กำหนดปิด (Due date)</label><input type="date" id="dueDate"></div>
+        <div class="field"><label>ทวนสอบประสิทธิผล (Effectiveness)</label><select id="effectiveness"></select></div>
+        <div class="field"><label>สถานะ (Status)</label><select id="status"></select></div>
+      </div>
+      <div class="field"><label>หลักฐานยืนยันประสิทธิผล (EffectivenessEvidence)</label><textarea id="effectivenessEvidence" placeholder="เช่น IQC รันถัดไปอยู่ในเกณฑ์ 2 วันติด"></textarea></div>
+      <div class="field"><label>ผู้แก้ไข + ทบทวน (Reviewer)</label><input id="reviewer" placeholder="ชื่อ + ตำแหน่ง"></div>
+      <p class="hint">ℹ️ จะปิด (Closed) ได้ต่อเมื่อ Effectiveness = "ยืนยันได้ผล" — ถ้ายังรอทวนสอบรอบถัดไป ให้คง Pending</p>
+    </div>
+
+    <div class="card">
+      <h2>เพิ่มเติม</h2>
+      <div class="field"><label>หมายเหตุ (Notes)</label><textarea id="notes" placeholder="ระบุ similar NC ที่พบ ฯลฯ"></textarea></div>
+      <div class="field"><label>ลิงก์ไฟล์แนบ (Drive)</label><input id="fileAttachment" placeholder="https://drive.google.com/..."></div>
+    </div>
+
+    <button id="submit">บันทึกเคส</button>
+  </div>
+</div>
+
+<script>
+  // ===== API config (ADR-0005 — external host + fetch แบบ BacBuD) =====
+  // ฟอร์ม host ภายนอก (GitHub Pages) → fetch POST /exec (ไม่ใส่ header = simple request ไม่มี preflight)
+  // เปิดไฟล์ในเครื่อง (URL ยัง placeholder) → DEMO mock · /exec ไม่ใช่ secret (Anyone-with-link) commit ได้
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQTFsGv2JhlhjF7-VjWw-hGI1eCcsj4Pv_FvRlKTFfuA0Cdb8Nnj6PJPi8Yhg42ZpH/exec';  // ← แทนด้วย /exec จริงในไฟล์ที่ host บน gh-pages
+  var USE_DEMO = APPS_SCRIPT_URL.indexOf('http') !== 0;
+
+  var DEMO = {
+    getIqcFormData: function(){
+      return {
+        tests:['Phosphorus','Calcium','Co2','Total protein','ALP','AST','Mg','LDL','HDL','Protein','Triglyceride','BUN','Glucose'],
+        instruments:['BS1000M','BS600','BS620M','SPINREACT','DIRUI CS-2000','cobas e 411','cobas e 402','Mission U 500','STAGO Satellite Max','STAGO Compact Max','Accu-Chek Instant'],
+        multiRules:['1-3s','2-2s','2 of 3-2s','R4s','4-1s','10x'],
+        controlLevels:['1','2','3'],
+        errorTypes:['Random error','Systemic error'],
+        yesNo:['ใช่','ไม่ใช่'],
+        reagentTypes:['ถูกต้อง','ไม่ถูกต้อง'],
+        reagentStorage:['ถูกต้อง','ไม่ถูกต้อง'],
+        controlTypes:['ถูกต้อง','ไม่ถูกต้อง'],
+        controlStorage:['ถูกต้อง','ไม่ถูกต้อง'],
+        calibration:['ยังอยู่ในเวลาที่กำหนด','เลยเวลาที่กำหนด'],
+        calibratorTypes:['ถูกต้อง','ไม่ถูกต้อง'],
+        caReagent:['เปลี่ยนขวดใหม่/เตรียมใหม่','เปลี่ยน lot ใหม่'],
+        caControl:['ตรวจซ้ำจากขวดเดิม','ละลายและใช้ขวดใหม่','ละลายและใช้ lot ใหม่','เปลี่ยน control ขวดใหม่'],
+        caCalibration:['Calibrate ใหม่จากขวดเดิม','เปลี่ยน Calibrator/Std. ขวดใหม่/กล่องใหม่','เปลี่ยน Calibrator/Std. Lot. ใหม่'],
+        caInstrument:['Clean','เปลี่ยนชิ้นส่วนอะไหล่','แก้ไขค่า factor'],
+        caSample:['เก็บไว้ตรวจเองจนกว่าจะแก้ไขเสร็จ','ส่งต่อไปตรวจห้องปฏิบัติการอื่น'],
+        actionResult:['Pass','Fail','Pending'],
+        patientImpact:['ไม่กระทบผลผู้ป่วย','กระทบ-ทบทวนผลย้อนหลัง','กระทบ-แจ้งแพทย์&เรียกคืนผล'],
+        similarNCCheck:['ตรวจแล้วไม่พบที่อื่น','พบที่การทดสอบ/เครื่องอื่น'],
+        effectiveness:['ยืนยันได้ผล','ไม่ได้ผล-เปิดเคสใหม่','รอทวนสอบรอบถัดไป'],
+        status:['Open','Pending','Closed'],
+        owner:'tujas (demo)'
+      };
+    },
+    submitIQC: function(p){
+      var rec = p.rec || {};
+      if(rec.Status==='Closed' && rec.Effectiveness!=='ยืนยันได้ผล') throw new Error('[demo] rule #7: ปิดได้เฉพาะ Effectiveness=ยืนยันได้ผล');
+      return { id:'IQC-DEMO-001', status:rec.Status||'Open' };
+    }
+  };
+
+  /** เรียก backend — 2 โหมด: DEMO (เปิดไฟล์ในเครื่อง) → fetch /exec (prod, host ภายนอก) */
+  async function api(action, payload){
+    if(USE_DEMO) return DEMO[action](payload||{});      // เปิดไฟล์ในเครื่อง → mock
+    // ห้ามใส่ header Content-Type → browser ส่ง text/plain → ไม่เกิด CORS preflight (BacBuD pattern)
+    var res = await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify(Object.assign({action:action}, payload||{})) });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var j = await res.json();
+    if(!j.success) throw new Error(j.error||'unknown error');
+    return j.data;
+  }
+
+  // prefill จาก query param (host ภายนอก = อ่าน location.search ได้ตรงๆ ไม่ติด sandbox)
+  var PREFILL = Object.fromEntries(new URLSearchParams(location.search));
+  var DATA = null;
+
+  api('getIqcFormData')
+    .then(onData)
+    .catch(function(e){ document.getElementById('loading').textContent = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
+
+  function onData(d){
+    DATA = d;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    fillSelect('test', d.tests, 'เลือกการทดสอบ');
+    fillSelect('instrument', d.instruments, '— ไม่ระบุ —');
+    fillSelect('multiRule', d.multiRules, '— ไม่ระบุ —');
+    fillSelect('controlLevelAffected', d.controlLevels, '— ไม่ระบุ —');
+    fillSelect('errorType', d.errorTypes, '— ไม่ระบุ —');
+    fillSelect('needReview', d.yesNo, '— ไม่ระบุ —');
+    fillSelect('reagentType', d.reagentTypes, '— ไม่ระบุ —');
+    fillSelect('reagentStorage', d.reagentStorage, '— ไม่ระบุ —');
+    fillSelect('controlType', d.controlTypes, '— ไม่ระบุ —');
+    fillSelect('controlStorage', d.controlStorage, '— ไม่ระบุ —');
+    fillSelect('calibration', d.calibration, '— ไม่ระบุ —');
+    fillSelect('calibratorType', d.calibratorTypes, '— ไม่ระบุ —');
+    fillSelect('similarNCCheck', d.similarNCCheck, '— ไม่ระบุ —');
+    fillSelect('patientImpact', d.patientImpact, '— ไม่ระบุ —');
+    fillSelect('actionResult', d.actionResult, '— ไม่ระบุ —');
+    fillSelect('effectiveness', d.effectiveness, '— ไม่ระบุ —');
+    fillSelect('status', d.status, '');
+
+    fillChips('caReagent', d.caReagent, 'ca-reagent');
+    fillChips('caControl', d.caControl, 'ca-control');
+    fillChips('caCalibration', d.caCalibration, 'ca-calibration');
+    fillChips('caInstrument', d.caInstrument, 'ca-instrument');
+    fillChips('caSample', d.caSample, 'ca-sample');
+
+    // default Status = Open ถ้ามีในรายการ
+    var st = document.getElementById('status');
+    if (d.status && d.status.indexOf('Open') >= 0) st.value = 'Open';
+
+    // แสดง/ซ่อนช่องรายละเอียดผลกระทบตามค่าที่เลือก
+    document.getElementById('patientImpact').addEventListener('change', toggleImpactDetail);
+
+    applyPrefill();
+  }
+
+  function fillSelect(id, items, placeholder){
+    var s = document.getElementById(id);
+    s.innerHTML = placeholder !== '' ? '<option value="">'+placeholder+'</option>' : '';
+    (items||[]).forEach(function(v){
+      var o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o);
+    });
+  }
+
+  // 5 กลุ่ม CA_* แต่ละกลุ่มมี class ของตัวเอง → เก็บค่าแยกกลุ่มได้ตอน submit
+  function fillChips(id, items, cls){
+    var box = document.getElementById(id);
+    box.innerHTML = '';
+    (items||[]).forEach(function(v){
+      var lab = document.createElement('label'); lab.className = 'chip';
+      var cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = v; cb.className = cls;
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(v));
+      box.appendChild(lab);
+    });
+  }
+
+  function checkedVals(cls){
+    return [].map.call(document.querySelectorAll('.'+cls+':checked'), function(c){ return c.value; });
+  }
+
+  function toggleImpactDetail(){
+    var v = document.getElementById('patientImpact').value;
+    var show = v && v.indexOf('ไม่กระทบ') < 0;   // ทุกตัวเลือกที่ไม่ใช่ "ไม่กระทบ" = ต้องระบุการจัดการ
+    document.getElementById('impactDetailWrap').style.display = show ? '' : 'none';
+  }
+
+  function applyPrefill(){
+    // select prefill ถ้า value ตรง option (มาจาก IQC alert / ลิงก์ลัด)
+    ['test','instrument','multiRule'].forEach(function(id){
+      if(!PREFILL[id]) return;
+      var sel = document.getElementById(id);
+      if([].some.call(sel.options, function(o){return o.value===PREFILL[id];})) sel.value = PREFILL[id];
+    });
+    if(PREFILL.serialNo) document.getElementById('serialNo').value = PREFILL.serialNo;
+  }
+
+  document.getElementById('submit').addEventListener('click', function(){
+    var token = document.getElementById('token').value;
+    if(!token) return showMsg('err','กรุณาใส่ Edit Token ก่อนบันทึก');
+    var date = val('date');
+    var test = document.getElementById('test').value;
+    if(!date) return showMsg('err','กรุณาระบุวันที่พบปัญหา');
+    if(!test) return showMsg('err','กรุณาเลือกการทดสอบ (Test)');
+
+    var status = document.getElementById('status').value;
+    var effectiveness = document.getElementById('effectiveness').value;
+    var caReagent = checkedVals('ca-reagent');
+    var caControl = checkedVals('ca-control');
+    var caCalibration = checkedVals('ca-calibration');
+    var caInstrument = checkedVals('ca-instrument');
+    var caSample = checkedVals('ca-sample');
+    var caOther = val('caOther');
+
+    // ปิดงาน (Closed): mirror ชุดที่ server บังคับ (assertIqcClosable_ §8.7 · rule #7)
+    // เก็บทุกช่องที่ขาดแล้วโชว์ทีเดียว — ผู้ใช้เห็นครบตั้งแต่หน้า form ไม่ต้องโดน error ทีละอย่าง
+    if(status === 'Closed'){
+      if(effectiveness !== 'ยืนยันได้ผล') return showMsg('err','ปิดงาน (Closed) ได้เฉพาะเมื่อ Effectiveness = "ยืนยันได้ผล" — ถ้ายังรอทวนสอบให้เลือก Pending');
+      var requiredOnClose = [
+        ['rootCause','สาเหตุที่แท้จริง (RootCause)'],
+        ['actionSummary','สรุปผลการแก้ไข (ActionSummary)'],
+        ['actionResult','ผลการแก้เฉพาะหน้า (ActionResult)'],
+        ['patientImpact','ผลกระทบต่อผู้ป่วย (PatientImpact)'],
+        ['similarNCCheck','การตรวจขอบเขต NC (SimilarNCCheck)'],
+        ['effectivenessEvidence','หลักฐานยืนยันประสิทธิผล (EffectivenessEvidence)']
+      ];
+      var miss = [];
+      requiredOnClose.forEach(function(f){ if(!val(f[0])) miss.push(f[1]); });
+      // §8.7(a): ต้องมีมาตรการแก้อย่างน้อย 1 รายการ (CA_* ใดก็ได้ รวม CA_Other)
+      var hasCA = caReagent.length || caControl.length || caCalibration.length || caInstrument.length || caSample.length || caOther;
+      if(!hasCA) miss.push('มาตรการแก้ไขอย่างน้อย 1 รายการ (CA_*)');
+      var pi = document.getElementById('patientImpact').value;
+      if(pi && pi !== 'ไม่กระทบผลผู้ป่วย' && !val('patientImpactDetail')) miss.push('การจัดการผลผู้ป่วย (PatientImpactDetail)');
+      if(miss.length) return showMsg('err','ปิดงาน (Closed) ต้องกรอกให้ครบตาม CAPA §8.7 — ยังขาด: ' + miss.join(', '));
+    }
+
+    var rec = {
+      Date: date,
+      Test: test,
+      Instrument: val('instrument'),
+      SerialNo: val('serialNo'),
+      MultiRule: val('multiRule'),
+      ControlLevelAffected: val('controlLevelAffected'),
+      ErrorType: val('errorType'),
+      NeedReview: val('needReview'),
+      ReagentType: val('reagentType'),
+      ReagentStorage: val('reagentStorage'),
+      ControlType: val('controlType'),
+      ControlStorage: val('controlStorage'),
+      Calibration: val('calibration'),
+      CalibratorType: val('calibratorType'),
+      CA_Reagent: caReagent,
+      CA_Control: caControl,
+      CA_Calibration: caCalibration,
+      CA_Instrument: caInstrument,
+      CA_Sample: caSample,
+      CA_Other: caOther,
+      RootCause: val('rootCause'),
+      ActionSummary: val('actionSummary'),
+      ActionResult: val('actionResult'),
+      Status: status,
+      Reviewer: val('reviewer'),
+      PatientImpact: val('patientImpact'),
+      PatientImpactDetail: val('patientImpactDetail'),
+      SimilarNCCheck: val('similarNCCheck'),
+      DueDate: val('dueDate'),
+      Effectiveness: effectiveness,
+      EffectivenessEvidence: val('effectivenessEvidence'),
+      Notes: val('notes'),
+      FileAttachment: val('fileAttachment')
+    };
+
+    var btn = document.getElementById('submit');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    api('submitIQC', { rec: rec, editToken: token })
+      .then(onSaved)
+      .catch(function(e){ btn.disabled=false; btn.textContent='บันทึกเคส'; showMsg('err','บันทึกไม่สำเร็จ: '+e.message); });
+  });
+
+  function onSaved(res){
+    var btn = document.getElementById('submit');
+    btn.disabled=false; btn.textContent='บันทึกเคส';
+    showMsg('ok','✅ บันทึกแล้ว: '+res.id+' (สถานะ '+res.status+')');
+    window.scrollTo(0,0);
+  }
+
+  function val(id){ return document.getElementById(id).value.trim(); }
+
+  // render เป็น textContent เสมอ — ข้อความ error บาง backend echo ค่า input กลับมา (กัน HTML injection)
+  function showMsg(type, text){
+    var m = document.getElementById('msg');
+    m.className = 'msg show ' + type;
+    m.textContent = text;
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>
