@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รายการ / ปิดงาน IQC</title>
+<style>
+  :root{
+    --bg:#f7f6f2; --card:#fff; --t1:#2C2C2A; --t2:#5F5E5A; --t3:#9b9a94;
+    --line:rgba(0,0,0,.14); --accent:#0C447C; --accent-bg:#E6F1FB;
+    --ok:#0F6E56; --ok-bg:#E1F5EE; --warn:#854F0B; --warn-bg:#FAEEDA; --bad:#791F1F; --bad-bg:#FCEBEB;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;}
+  .wrap{max-width:860px;margin:0 auto;padding:18px 14px 60px;}
+  h1{font-size:19px;font-weight:600;margin:0 0 2px;}
+  .sub{color:var(--t2);font-size:13px;margin:0 0 16px;}
+  .card{background:var(--card);border:.5px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 2px;color:var(--accent);}
+  .card .iso{font-size:11px;color:var(--t3);margin:0 0 10px;}
+  label{display:block;font-size:12px;color:var(--t2);margin:0 0 3px;}
+  input,select,textarea{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;background:#fff;}
+  textarea{resize:vertical;min-height:54px;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-bg);border-color:var(--accent);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{margin-bottom:10px;}
+  .ca-group{margin-bottom:10px;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px;}
+  .chip{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t1);background:#fafafa;border:1px solid var(--line);border-radius:8px;padding:6px 9px;cursor:pointer;}
+  .chip input{width:auto;margin:0;}
+  button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:15px;font-weight:500;cursor:pointer;width:100%;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .msg{padding:11px 13px;border-radius:8px;margin-bottom:14px;font-size:13px;display:none;}
+  .msg.show{display:block;}
+  .msg.err{background:var(--bad-bg);color:var(--bad);} .msg.ok{background:var(--ok-bg);color:var(--ok);}
+  .hint{font-size:11px;color:var(--t3);margin:2px 0 0;}
+  #loading{color:var(--t2);padding:20px;text-align:center;}
+  /* list table */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 8px;border-bottom:.5px solid var(--line);white-space:nowrap;}
+  th{color:var(--t2);font-weight:600;font-size:12px;}
+  tr.case-row{cursor:pointer;}
+  tr.case-row:hover{background:var(--accent-bg);}
+  tr.case-row.active{background:var(--accent-bg);}
+  .table-scroll{overflow-x:auto;}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;}
+  .badge.open{background:var(--warn-bg);color:var(--warn);}
+  .badge.pending{background:var(--accent-bg);color:var(--accent);}
+  .empty{color:var(--t3);padding:18px;text-align:center;}
+  .panel-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+  .panel-head .pid{font-weight:600;color:var(--accent);}
+  @media (max-width:520px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>รายการ / ปิดงาน IQC</h1>
+  <p class="sub">เคส IQC ที่ยังไม่ปิด (Status ≠ Closed) · คลิกเคสเพื่อกรอก CAPA §8.7 แล้วปิดงาน · กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล</p>
+
+  <div id="loading">⏳ กำลังโหลดข้อมูล...</div>
+
+  <div id="app" style="display:none;">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>โหมดแก้ไข</h2>
+      <div class="field">
+        <label>Edit Token (PIN — รหัสปลดล็อกการปิดงาน)</label>
+        <input type="password" id="token" placeholder="ใส่ PIN เพื่อปิดงานได้">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>เคสที่ยังไม่ปิด</h2>
+      <p class="iso">เรียงล่าสุดก่อน · คลิกแถวเพื่อกางแผงปิดงาน</p>
+      <div class="table-scroll">
+        <table id="caseTable">
+          <thead><tr>
+            <th>ID</th><th>วันที่</th><th>Test</th><th>Instrument</th><th>MultiRule</th><th>Status</th>
+          </tr></thead>
+          <tbody id="caseBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyMsg" class="empty" style="display:none;">— ไม่มีเคสที่ยังไม่ปิด —</div>
+    </div>
+
+    <!-- แผงปิดงาน (กางใต้แถวที่คลิก) -->
+    <div id="closePanel" style="display:none;">
+      <div class="card">
+        <div class="panel-head">
+          <span class="pid" id="panelId"></span>
+          <span id="panelMeta" class="iso" style="margin:0;"></span>
+        </div>
+        <p class="iso">กรอกข้อมูลแก้ไข (CAPA ISO 15189 §8.7) เพื่อปิดเคส</p>
+      </div>
+
+      <div class="card">
+        <h2>③ ปฏิบัติการแก้ไข (Correction)</h2>
+        <p class="iso">ISO §8.7(a) — react / contain · เลือกได้หลายข้อต่อหมวด (ปิดงานต้องมีอย่างน้อย 1)</p>
+        <div class="ca-group"><label>หมวดน้ำยา (CA — Reagent)</label><div class="chips" id="caReagent"></div></div>
+        <div class="ca-group"><label>หมวด control (CA — Control)</label><div class="chips" id="caControl"></div></div>
+        <div class="ca-group"><label>หมวด calibration (CA — Calibration)</label><div class="chips" id="caCalibration"></div></div>
+        <div class="ca-group"><label>หมวดเครื่อง (CA — Instrument)</label><div class="chips" id="caInstrument"></div></div>
+        <div class="ca-group"><label>หมวดตัวอย่าง (CA — Sample)</label><div class="chips" id="caSample"></div></div>
+        <div class="field"><label>อื่นๆ ระบุ (CA — Other)</label><input id="caOther" placeholder="มาตรการแก้ไขอื่นที่ไม่อยู่ในหมวดข้างบน"></div>
+      </div>
+
+      <div class="card">
+        <h2>④ สาเหตุ + ขอบเขต + ผลกระทบผู้ป่วย</h2>
+        <p class="iso">ISO §8.7(a,b) — root cause + extent + risk</p>
+        <div class="field"><label>สาเหตุที่แท้จริง (Root cause)</label><textarea id="rootCause" placeholder="เช่น Control material เตรียมไว้นาน"></textarea></div>
+        <div class="field"><label>ตรวจขอบเขต — NC แบบเดียวกันเกิดที่อื่นไหม (SimilarNCCheck)</label><select id="similarNCCheck"></select></div>
+        <div class="field"><label>ผลกระทบต่อผู้ป่วย (PatientImpact)</label><select id="patientImpact"></select></div>
+        <div class="field" id="impactDetailWrap" style="display:none;"><label>การจัดการผลผู้ป่วย (PatientImpactDetail)</label><textarea id="patientImpactDetail" placeholder="เช่น ทบทวนผลย้อนหลังช่วงที่ IQC ตก / แจ้งแพทย์เรียกคืนผล"></textarea></div>
+      </div>
+
+      <div class="card">
+        <h2>⑤ สรุป / ทวนสอบ / ปิดงาน</h2>
+        <p class="iso">ISO §8.7(c,d) — corrective action + ทวนสอบประสิทธิผล · ปิดได้เมื่อ Effectiveness = ยืนยันได้ผล</p>
+        <div class="field"><label>สรุปผลการแก้ไข (ActionSummary)</label><textarea id="actionSummary" placeholder="เช่น ละลายและใช้ control ขวดใหม่"></textarea></div>
+        <div class="grid">
+          <div class="field"><label>ผลการแก้เฉพาะหน้า (ActionResult)</label><select id="actionResult"></select></div>
+          <div class="field"><label>กำหนดปิด (Due date)</label><input type="date" id="dueDate"></div>
+          <div class="field"><label>ทวนสอบประสิทธิผล (Effectiveness)</label><select id="effectiveness"></select></div>
+        </div>
+        <div class="field"><label>หลักฐานยืนยันประสิทธิผล (EffectivenessEvidence)</label><textarea id="effectivenessEvidence" placeholder="เช่น IQC รันถัดไปอยู่ในเกณฑ์ 2 วันติด"></textarea></div>
+        <div class="field"><label>ผู้แก้ไข + ทบทวน (Reviewer)</label><input id="reviewer" placeholder="ชื่อ + ตำแหน่ง"></div>
+        <p class="hint">ℹ️ ปิดงานได้ต่อเมื่อ Effectiveness = "ยืนยันได้ผล" + กรอก CAPA §8.7 ครบ</p>
+      </div>
+
+      <button id="closeBtn">ปิดงาน</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== API config (ADR-0005 — external host + fetch แบบ BacBuD) =====
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQTFsGv2JhlhjF7-VjWw-hGI1eCcsj4Pv_FvRlKTFfuA0Cdb8Nnj6PJPi8Yhg42ZpH/exec';  // ← แทนด้วย /exec จริงในไฟล์ที่ host บน gh-pages
+  var USE_DEMO = APPS_SCRIPT_URL.indexOf('http') !== 0;
+
+  var DEMO = {
+    getIqcFormData: function(){
+      return {
+        tests:['Phosphorus','Calcium','Co2','Total protein','ALP','AST','Mg','LDL','HDL','Protein','Triglyceride','BUN','Glucose'],
+        instruments:['BS1000M','BS600','BS620M','SPINREACT','DIRUI CS-2000','cobas e 411','cobas e 402','Mission U 500','STAGO Satellite Max','STAGO Compact Max','Accu-Chek Instant'],
+        multiRules:['1-3s','2-2s','2 of 3-2s','R4s','4-1s','10x'],
+        controlLevels:['1','2','3'],
+        errorTypes:['Random error','Systemic error'],
+        yesNo:['ใช่','ไม่ใช่'],
+        reagentTypes:['ถูกต้อง','ไม่ถูกต้อง'],
+        reagentStorage:['ถูกต้อง','ไม่ถูกต้อง'],
+        controlTypes:['ถูกต้อง','ไม่ถูกต้อง'],
+        controlStorage:['ถูกต้อง','ไม่ถูกต้อง'],
+        calibration:['ยังอยู่ในเวลาที่กำหนด','เลยเวลาที่กำหนด'],
+        calibratorTypes:['ถูกต้อง','ไม่ถูกต้อง'],
+        caReagent:['เปลี่ยนขวดใหม่/เตรียมใหม่','เปลี่ยน lot ใหม่'],
+        caControl:['ตรวจซ้ำจากขวดเดิม','ละลายและใช้ขวดใหม่','ละลายและใช้ lot ใหม่','เปลี่ยน control ขวดใหม่'],
+        caCalibration:['Calibrate ใหม่จากขวดเดิม','เปลี่ยน Calibrator/Std. ขวดใหม่/กล่องใหม่','เปลี่ยน Calibrator/Std. Lot. ใหม่'],
+        caInstrument:['Clean','เปลี่ยนชิ้นส่วนอะไหล่','แก้ไขค่า factor'],
+        caSample:['เก็บไว้ตรวจเองจนกว่าจะแก้ไขเสร็จ','ส่งต่อไปตรวจห้องปฏิบัติการอื่น'],
+        actionResult:['Pass','Fail','Pending'],
+        patientImpact:['ไม่กระทบผลผู้ป่วย','กระทบ-ทบทวนผลย้อนหลัง','กระทบ-แจ้งแพทย์&เรียกคืนผล'],
+        similarNCCheck:['ตรวจแล้วไม่พบที่อื่น','พบที่การทดสอบ/เครื่องอื่น'],
+        effectiveness:['ยืนยันได้ผล','ไม่ได้ผล-เปิดเคสใหม่','รอทวนสอบรอบถัดไป'],
+        status:['Open','Pending','Closed'],
+        owner:'tujas (demo)'
+      };
+    },
+    // 2 เคสปลอม Status≠Closed ครบ field พอ prefill
+    listRecords: function(){
+      return [
+        {
+          ID:'IQC-DEMO-002', Date:'2026-06-27', Test:'Glucose', Instrument:'BS600',
+          SerialNo:'SN-600-02', MultiRule:'1-3s', ControlLevelAffected:'2', ErrorType:'Random error',
+          NeedReview:'ใช่', ReagentType:'ถูกต้อง', ReagentStorage:'ถูกต้อง', ControlType:'ถูกต้อง',
+          ControlStorage:'ถูกต้อง', Calibration:'ยังอยู่ในเวลาที่กำหนด', CalibratorType:'ถูกต้อง',
+          CA_Reagent:[], CA_Control:['ละลายและใช้ขวดใหม่'], CA_Calibration:[], CA_Instrument:[], CA_Sample:[],
+          CA_Other:'', RootCause:'', ActionSummary:'', ActionResult:'', Status:'Open', Reviewer:'',
+          PatientImpact:'', PatientImpactDetail:'', SimilarNCCheck:'', DueDate:'', Effectiveness:'',
+          EffectivenessEvidence:'', Notes:'', FileAttachment:''
+        },
+        {
+          ID:'IQC-DEMO-003', Date:'2026-06-25', Test:'Calcium', Instrument:'cobas e 411',
+          SerialNo:'SN-411-01', MultiRule:'2-2s', ControlLevelAffected:'1', ErrorType:'Systemic error',
+          NeedReview:'ใช่', ReagentType:'ถูกต้อง', ReagentStorage:'ถูกต้อง', ControlType:'ถูกต้อง',
+          ControlStorage:'ถูกต้อง', Calibration:'เลยเวลาที่กำหนด', CalibratorType:'ถูกต้อง',
+          CA_Reagent:[], CA_Control:[], CA_Calibration:['Calibrate ใหม่จากขวดเดิม'], CA_Instrument:[], CA_Sample:[],
+          CA_Other:'', RootCause:'Calibration เลยกำหนด', ActionSummary:'Calibrate ใหม่',
+          ActionResult:'Pass', Status:'Pending', Reviewer:'tujas',
+          PatientImpact:'ไม่กระทบผลผู้ป่วย', PatientImpactDetail:'', SimilarNCCheck:'ตรวจแล้วไม่พบที่อื่น',
+          DueDate:'2026-06-30', Effectiveness:'รอทวนสอบรอบถัดไป', EffectivenessEvidence:'', Notes:'', FileAttachment:''
+        }
+      ];
+    },
+    closeRecord: function(p){
+      // จำลอง server assertIqcClosable_ ให้ครบ (ใช้ helper เดียวกับ client gate — กัน DEMO drift)
+      var miss = missingForClose(p.patch || {});
+      if(miss.length) throw new Error('[demo] ปิดงานไม่ครบ CAPA §8.7 — ขาด: ' + miss.join(', '));
+      return { id:p.id, status:'Closed' };
+    }
+  };
+
+  /** เรียก backend — DEMO (เปิดไฟล์ในเครื่อง) → fetch /exec (prod, host ภายนอก) */
+  async function api(action, payload){
+    if(USE_DEMO) return DEMO[action](payload||{});
+    var res = await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify(Object.assign({action:action}, payload||{})) });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var j = await res.json();
+    if(!j.success) throw new Error(j.error||'unknown error');
+    return j.data;
+  }
+
+  var DATA = null;          // form data (dropdowns/chips)
+  var RECORDS = [];         // เคส Open ปัจจุบัน
+  var SELECTED = null;      // record object ที่กำลังเปิดแผงปิดงาน
+
+  // โหลดทั้ง form data + records พร้อมกัน
+  Promise.all([ api('getIqcFormData'), api('listRecords') ])
+    .then(function(r){ onData(r[0]); RECORDS = r[1] || []; renderList(); })
+    .catch(function(e){ document.getElementById('loading').textContent = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
+
+  function onData(d){
+    DATA = d;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    fillSelect('similarNCCheck', d.similarNCCheck, '— ไม่ระบุ —');
+    fillSelect('patientImpact', d.patientImpact, '— ไม่ระบุ —');
+    fillSelect('actionResult', d.actionResult, '— ไม่ระบุ —');
+    fillSelect('effectiveness', d.effectiveness, '— ไม่ระบุ —');
+
+    fillChips('caReagent', d.caReagent, 'ca-reagent');
+    fillChips('caControl', d.caControl, 'ca-control');
+    fillChips('caCalibration', d.caCalibration, 'ca-calibration');
+    fillChips('caInstrument', d.caInstrument, 'ca-instrument');
+    fillChips('caSample', d.caSample, 'ca-sample');
+
+    document.getElementById('patientImpact').addEventListener('change', toggleImpactDetail);
+  }
+
+  // ===== render ตารางเคส (DOM API — กัน injection ตาม CODEREV-2 P3-4) =====
+  function renderList(){
+    var body = document.getElementById('caseBody');
+    body.innerHTML = '';
+    if(!RECORDS.length){
+      document.getElementById('emptyMsg').style.display = 'block';
+      document.getElementById('caseTable').style.display = 'none';
+      return;
+    }
+    document.getElementById('emptyMsg').style.display = 'none';
+    document.getElementById('caseTable').style.display = '';
+    RECORDS.forEach(function(rec){
+      var tr = document.createElement('tr');
+      tr.className = 'case-row';
+      tr.appendChild(td(rec.ID));
+      tr.appendChild(td(fmtDate(rec.Date)));
+      tr.appendChild(td(rec.Test));
+      tr.appendChild(td(rec.Instrument));
+      tr.appendChild(td(rec.MultiRule));
+      tr.appendChild(statusCell(rec.Status));
+      tr.addEventListener('click', function(){ openPanel(rec, tr); });
+      body.appendChild(tr);
+    });
+  }
+
+  function td(text){
+    var c = document.createElement('td');
+    c.textContent = (text == null ? '' : String(text));
+    return c;
+  }
+  function statusCell(status){
+    var c = document.createElement('td');
+    var b = document.createElement('span');
+    var s = String(status || '');
+    b.className = 'badge ' + (s.toLowerCase() === 'pending' ? 'pending' : 'open');
+    b.textContent = s;
+    c.appendChild(b);
+    return c;
+  }
+
+  // ===== เปิดแผงปิดงาน + prefill ค่าเดิมจาก record =====
+  function openPanel(rec, tr){
+    SELECTED = rec;
+    [].forEach.call(document.querySelectorAll('tr.case-row'), function(r){ r.classList.remove('active'); });
+    tr.classList.add('active');
+
+    document.getElementById('panelId').textContent = rec.ID;
+    document.getElementById('panelMeta').textContent =
+      [rec.Date, rec.Test, rec.Instrument, rec.MultiRule].filter(Boolean).join(' · ');
+
+    prefillFromRecord(rec);
+    toggleImpactDetail();
+
+    var panel = document.getElementById('closePanel');
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function prefillFromRecord(rec){
+    setSelect('similarNCCheck', rec.SimilarNCCheck);
+    setSelect('patientImpact', rec.PatientImpact);
+    setSelect('actionResult', rec.ActionResult);
+    setSelect('effectiveness', rec.Effectiveness);
+
+    setText('caOther', rec.CA_Other);
+    setText('rootCause', rec.RootCause);
+    setText('patientImpactDetail', rec.PatientImpactDetail);
+    setText('actionSummary', rec.ActionSummary);
+    setText('dueDate', fmtDate(rec.DueDate));
+    setText('effectivenessEvidence', rec.EffectivenessEvidence);
+    setText('reviewer', rec.Reviewer);
+
+    setChips('ca-reagent', rec.CA_Reagent);
+    setChips('ca-control', rec.CA_Control);
+    setChips('ca-calibration', rec.CA_Calibration);
+    setChips('ca-instrument', rec.CA_Instrument);
+    setChips('ca-sample', rec.CA_Sample);
+  }
+
+  // prod อ่านจากชีต → คอลัมน์วันที่อาจกลับมาเป็น Date object → JSON เป็น ISO string
+  // ตัดเหลือ yyyy-mm-dd (โชว์ในตาราง + ใส่ <input type=date> ได้) · ค่าที่เป็น yyyy-mm-dd อยู่แล้วคงเดิม
+  function fmtDate(v){
+    if(v == null || v === '') return '';
+    var s = String(v);
+    var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : s;
+  }
+  function setText(id, v){ document.getElementById(id).value = (v == null ? '' : String(v)); }
+  function setSelect(id, v){
+    var s = document.getElementById(id);
+    v = (v == null ? '' : String(v));
+    if([].some.call(s.options, function(o){ return o.value === v; })) s.value = v;
+    else s.value = '';
+  }
+  function setChips(cls, vals){
+    var arr = Array.isArray(vals) ? vals.map(String)
+            : (vals ? String(vals).split(',').map(function(x){return x.trim();}) : []);
+    [].forEach.call(document.querySelectorAll('.'+cls), function(c){ c.checked = arr.indexOf(c.value) >= 0; });
+  }
+
+  // ===== form helpers (ลอกจาก form-iqc) =====
+  function fillSelect(id, items, placeholder){
+    var s = document.getElementById(id);
+    s.innerHTML = placeholder !== '' ? '<option value="">'+placeholder+'</option>' : '';
+    (items||[]).forEach(function(v){
+      var o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o);
+    });
+  }
+  function fillChips(id, items, cls){
+    var box = document.getElementById(id);
+    box.innerHTML = '';
+    (items||[]).forEach(function(v){
+      var lab = document.createElement('label'); lab.className = 'chip';
+      var cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = v; cb.className = cls;
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(v));
+      box.appendChild(lab);
+    });
+  }
+  function checkedVals(cls){
+    return [].map.call(document.querySelectorAll('.'+cls+':checked'), function(c){ return c.value; });
+  }
+  function toggleImpactDetail(){
+    var v = document.getElementById('patientImpact').value;
+    var show = v && v.indexOf('ไม่กระทบ') < 0;
+    document.getElementById('impactDetailWrap').style.display = show ? '' : 'none';
+  }
+  function val(id){ return document.getElementById(id).value.trim(); }
+
+  // normalize CA_* รับทั้ง array (จากฟอร์ม) และ comma-string (จากชีตจริง) → array สะอาด
+  function caArr_(v){
+    if(Array.isArray(v)) return v.filter(Boolean);
+    return v ? String(v).split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+  }
+  // mirror assertIqcClosable_ (server) แบบ pure — รับ record/patch คืน label ที่ยังขาด
+  // ใช้ร่วมทั้ง client gate (closeBtn) และ DEMO closeRecord → กัน DEMO drift (บทเรียน ERROR-008)
+  function missingForClose(rec){
+    var required = [
+      ['RootCause','สาเหตุที่แท้จริง (RootCause)'],
+      ['ActionSummary','สรุปผลการแก้ไข (ActionSummary)'],
+      ['ActionResult','ผลการแก้เฉพาะหน้า (ActionResult)'],
+      ['PatientImpact','ผลกระทบต่อผู้ป่วย (PatientImpact)'],
+      ['SimilarNCCheck','การตรวจขอบเขต NC (SimilarNCCheck)'],
+      ['EffectivenessEvidence','หลักฐานยืนยันประสิทธิผล (EffectivenessEvidence)']
+    ];
+    var miss = [];
+    required.forEach(function(f){ if(!String(rec[f[0]]==null?'':rec[f[0]]).trim()) miss.push(f[1]); });
+    var hasCA = ['CA_Reagent','CA_Control','CA_Calibration','CA_Instrument','CA_Sample']
+      .some(function(k){ return caArr_(rec[k]).length; }) || String(rec.CA_Other||'').trim();
+    if(!hasCA) miss.push('มาตรการแก้ไขอย่างน้อย 1 รายการ (CA_*)');
+    if(rec.PatientImpact && rec.PatientImpact !== 'ไม่กระทบผลผู้ป่วย' && !String(rec.PatientImpactDetail||'').trim())
+      miss.push('การจัดการผลผู้ป่วย (PatientImpactDetail)');
+    if(rec.Effectiveness !== 'ยืนยันได้ผล')
+      miss.push('Effectiveness = "ยืนยันได้ผล" (ถ้ายังรอทวนสอบให้คง Pending)');
+    return miss;
+  }
+
+  // ===== ปิดงาน — mirror assertIqcClosable_ ฝั่ง client =====
+  document.getElementById('closeBtn').addEventListener('click', function(){
+    if(!SELECTED) return showMsg('err','กรุณาเลือกเคสก่อน');
+    var token = document.getElementById('token').value;
+    if(!token) return showMsg('err','กรุณาใส่ Edit Token (PIN) ก่อนปิดงาน');
+
+    var patch = {
+      CA_Reagent: checkedVals('ca-reagent'),
+      CA_Control: checkedVals('ca-control'),
+      CA_Calibration: checkedVals('ca-calibration'),
+      CA_Instrument: checkedVals('ca-instrument'),
+      CA_Sample: checkedVals('ca-sample'),
+      CA_Other: val('caOther'),
+      RootCause: val('rootCause'),
+      ActionSummary: val('actionSummary'),
+      ActionResult: val('actionResult'),
+      SimilarNCCheck: val('similarNCCheck'),
+      PatientImpact: val('patientImpact'),
+      PatientImpactDetail: val('patientImpactDetail'),
+      DueDate: val('dueDate'),
+      Effectiveness: val('effectiveness'),
+      EffectivenessEvidence: val('effectivenessEvidence'),
+      Reviewer: val('reviewer'),
+      Status: 'Closed'
+    };
+
+    // gate: เก็บ field ที่ขาดทั้งหมดแล้วโชว์ทีเดียว (ใช้ helper ร่วมกับ DEMO — กัน drift)
+    var miss = missingForClose(patch);
+    if(miss.length) return showMsg('err','ปิดงานต้องกรอกให้ครบตาม CAPA §8.7 — ยังขาด: ' + miss.join(', '));
+
+    var btn = document.getElementById('closeBtn');
+    btn.disabled = true; btn.textContent = 'กำลังปิดงาน...';
+    api('closeRecord', { id: SELECTED.ID, patch: patch, editToken: token })
+      .then(onClosed)
+      .catch(function(e){ btn.disabled=false; btn.textContent='ปิดงาน'; showMsg('err','ปิดงานไม่สำเร็จ: '+e.message); });
+  });
+
+  function onClosed(res){
+    var btn = document.getElementById('closeBtn');
+    btn.disabled=false; btn.textContent='ปิดงาน';
+    var closedId = (res && res.id) || (SELECTED && SELECTED.ID) || '';
+    // เคสที่ปิดแล้วหายจาก list
+    RECORDS = RECORDS.filter(function(r){ return r.ID !== closedId; });
+    SELECTED = null;
+    document.getElementById('closePanel').style.display = 'none';
+    renderList();
+    showMsg('ok','✅ ปิดงานเรียบร้อย: '+closedId);
+  }
+
+  // render เป็น textContent เสมอ (กัน HTML injection — backend อาจ echo ค่ากลับมา)
+  function showMsg(type, text){
+    var m = document.getElementById('msg');
+    m.className = 'msg show ' + type;
+    m.textContent = text;
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>
