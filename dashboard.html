@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard สรุปภาพรวม - IQC/EQA Corrective Action System</title>
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --card: #fff;
+    --t1: #2C2C2A;
+    --t2: #5F5E5A;
+    --t3: #9b9a94;
+    --line: rgba(0,0,0,.12);
+    --accent: #0C447C;
+    --accent-bg: #E6F1FB;
+    --r: 12px;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--t1);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+  }
+
+  /* Header Section */
+  header {
+    margin-bottom: 24px;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    transition: opacity 0.2s ease;
+  }
+
+  .back-link:hover {
+    opacity: 0.85;
+    text-decoration: underline;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: var(--accent);
+    letter-spacing: -0.3px;
+  }
+
+  .sub {
+    color: var(--t2);
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* Environmental Demo Alert */
+  .demo {
+    display: none;
+    background: #FFF9E6;
+    border: .5px solid rgba(133, 79, 11, 0.2);
+    color: #854F0B;
+    border-radius: var(--r);
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(133, 79, 11, 0.04);
+  }
+
+  .demo.show {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .demo svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .demo-text {
+    line-height: 1.5;
+  }
+
+  /* Filter Bar */
+  #filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 24px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #filters::-webkit-scrollbar {
+    height: 5px;
+  }
+  
+  #filters::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 4px;
+  }
+
+  .filter-select {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: var(--card);
+    color: var(--t1);
+    font-family: inherit;
+    flex-shrink: 0;
+    cursor: pointer;
+    min-width: 110px;
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+
+  .filter-select:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent-bg);
+  }
+
+  /* Summary Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: .5px solid var(--line);
+    border-radius: var(--r);
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .stat-card.iqc-open { border-left: 3px solid #D97706; }
+  .stat-card.iqc-closed { border-left: 3px solid #059669; }
+  .stat-card.eqa-open { border-left: 3px solid #D97706; }
+  .stat-card.eqa-closed { border-left: 3px solid #059669; }
+
+  .stat-val {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .stat-val.orange { color: #D97706; }
+  .stat-val.green { color: #059669; }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--t2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+
+  /* Chart Cards */
+  .chart-card {
+    background: var(--card);
+    border: .5px solid var(--line);
+    border-radius: var(--r);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.02);
+  }
+
+  .chart-card h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0 0 16px 0;
+    letter-spacing: -0.2px;
+  }
+
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 280px;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 32px;
+    padding-top: 18px;
+    border-top: .5px solid var(--line);
+    text-align: center;
+  }
+
+  .footer-note {
+    font-size: 12.5px;
+    color: var(--t2);
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 560px) {
+    .wrap {
+      padding: 24px 12px 48px;
+    }
+    .stats-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .stat-card {
+      padding: 16px;
+    }
+    .stat-val {
+      font-size: 32px;
+    }
+    .chart-card {
+      padding: 16px;
+    }
+    .chart-container {
+      height: 240px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="index.html" class="back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      กลับหน้าหลัก
+    </a>
+    <h1>Dashboard สรุปภาพรวม</h1>
+    <p class="sub">ข้อมูลสถิติ IQC/EQA Corrective Action</p>
+  </header>
+
+  <!-- DEMO Warning Banner -->
+  <div id="demo" class="demo">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+    </svg>
+    <div class="demo-text">
+      <b>โหมดทดลอง (DEMO)</b> — กำลังแสดงข้อมูลตัวอย่าง (mock data) ไม่ใช่ข้อมูลจริง
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <form id="filters" autocomplete="off" onsubmit="return false;">
+    <select id="filter-year" class="filter-select" aria-label="กรองข้อมูลตามปี">
+      <option value="ทั้งหมด">ปี: ทั้งหมด</option>
+      <option value="2567">2567</option>
+      <option value="2568">2568</option>
+    </select>
+    <select id="filter-month" class="filter-select" aria-label="กรองข้อมูลตามเดือน">
+      <option value="ทั้งหมด">เดือน: ทั้งหมด</option>
+      <option value="ม.ค.">ม.ค.</option>
+      <option value="ก.พ.">ก.พ.</option>
+      <option value="มี.ค.">มี.ค.</option>
+      <option value="เม.ย.">เม.ย.</option>
+      <option value="พ.ค.">พ.ค.</option>
+      <option value="มิ.ย.">มิ.ย.</option>
+      <option value="ก.ค.">ก.ค.</option>
+      <option value="ส.ค.">ส.ค.</option>
+      <option value="ก.ย.">ก.ย.</option>
+      <option value="ต.ค.">ต.ค.</option>
+      <option value="พ.ย.">พ.ย.</option>
+      <option value="ธ.ค.">ธ.ค.</option>
+    </select>
+    <select id="filter-program" class="filter-select" aria-label="กรองข้อมูลตาม Program EQA">
+      <option value="ทั้งหมด">Program EQA: ทั้งหมด</option>
+      <option value="EQAC">EQAC</option>
+      <option value="B-EQAM">B-EQAM</option>
+      <option value="EQAH">EQAH</option>
+      <option value="EQAT">EQAT</option>
+    </select>
+    <select id="filter-instrument" class="filter-select" aria-label="กรองข้อมูลตามเครื่องมือ IQC">
+      <option value="ทั้งหมด">เครื่องมือ IQC: ทั้งหมด</option>
+      <option value="Cobas c311">Cobas c311</option>
+      <option value="Cobas c111">Cobas c111</option>
+      <option value="ABL90">ABL90</option>
+      <option value="HbA1c Analyzer">HbA1c Analyzer</option>
+      <option value="Sysmex XN-350">Sysmex XN-350</option>
+    </select>
+  </form>
+
+  <!-- Summary Cards -->
+  <section class="stats-grid" aria-label="สรุปสถิติจำนวนเคส">
+    <div class="stat-card iqc-open">
+      <div id="iqc-open-val" class="stat-val orange">-</div>
+      <div class="stat-label">🔴 IQC Open</div>
+    </div>
+    <div class="stat-card iqc-closed">
+      <div id="iqc-closed-val" class="stat-val green">-</div>
+      <div class="stat-label">✅ IQC Closed</div>
+    </div>
+    <div class="stat-card eqa-open">
+      <div id="eqa-open-val" class="stat-val orange">-</div>
+      <div class="stat-label">⚠️ EQA Open</div>
+    </div>
+    <div class="stat-card eqa-closed">
+      <div id="eqa-closed-val" class="stat-val green">-</div>
+      <div class="stat-label">✅ EQA Closed</div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <main>
+    <!-- E1 EQA Grade Trend -->
+    <article class="chart-card">
+      <h2>สถิติเกรด EQA รายเดือน (EQA Grade Trend)</h2>
+      <div class="chart-container">
+        <canvas id="eqaChart" aria-label="กราฟแท่งแนวตั้งแสดงเกรดการประเมิน EQA แยกรายเดือน" role="img"></canvas>
+      </div>
+    </article>
+
+    <!-- E2 IQC by Test -->
+    <article class="chart-card">
+      <h2>สัดส่วนเคส IQC แยกตามรายการทดสอบ (IQC by Test)</h2>
+      <div class="chart-container">
+        <canvas id="iqcTestChart" aria-label="กราฟโดนัทแสดงสัดส่วนจำนวนเคส IQC แยกตามรายการทดสอบ" role="img"></canvas>
+      </div>
+    </article>
+
+    <!-- E3 IQC by Instrument -->
+    <article class="chart-card">
+      <h2>จำนวนเคส IQC แยกตามเครื่องวิเคราะห์ (IQC by Instrument)</h2>
+      <div class="chart-container">
+        <canvas id="iqcInstrumentChart" aria-label="กราฟแท่งแนวนอนแสดงจำนวนเคส IQC แยกตามเครื่องมือวิเคราะห์" role="img"></canvas>
+      </div>
+    </article>
+  </main>
+
+  <footer>
+    <p class="footer-note">
+      © กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล | ขณะนี้แสดงข้อมูลตัวอย่าง (mock) — ยังไม่เชื่อมต่อฐานข้อมูลจริง
+    </p>
+  </footer>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+  // MOCK DATA
+  const MOCK = {
+    summary: { iqcOpen: 5, iqcClosed: 12, eqaOpen: 2, eqaClosed: 8 },
+    eqaGradeTrend: [
+      { month: "ม.ค. 68", program: "EQAC", acceptable: 20, warning: 2, unacceptable: 1 },
+      { month: "ก.พ. 68", program: "EQAC", acceptable: 22, warning: 1, unacceptable: 0 },
+      { month: "มี.ค. 68", program: "B-EQAM", acceptable: 7, warning: 1, unacceptable: 1 },
+      { month: "เม.ย. 68", program: "EQAC", acceptable: 21, warning: 2, unacceptable: 1 },
+      { month: "พ.ค. 68", program: "EQAH", acceptable: 4, warning: 0, unacceptable: 0 },
+      { month: "มิ.ย. 68", program: "EQAC", acceptable: 19, warning: 3, unacceptable: 2 },
+      { month: "มิ.ย. 68", program: "EQAT", acceptable: 6, warning: 1, unacceptable: 0 }
+    ],
+    iqcByTest: [
+      { test: "Glucose", count: 4 },
+      { test: "HbA1c", count: 3 },
+      { test: "Creatinine", count: 2 },
+      { test: "AST", count: 2 },
+      { test: "ALT", count: 2 },
+      { test: "Sodium", count: 2 },
+      { test: "Potassium", count: 2 }
+    ],
+    iqcByInstrument: [
+      { instrument: "Cobas c311", count: 7 },
+      { instrument: "Cobas c111", count: 4 },
+      { instrument: "ABL90", count: 3 },
+      { instrument: "HbA1c Analyzer", count: 2 },
+      { instrument: "Sysmex XN-350", count: 1 }
+    ]
+  };
+
+  // Check and show DEMO banner when running locally (file:// or localhost)
+  const local = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if (local) {
+    document.getElementById('demo').classList.add('show');
+  }
+
+  // Set global Chart.js defaults
+  Chart.defaults.font.family = '"Segoe UI", system-ui, -apple-system, sans-serif';
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#5F5E5A'; // --t2
+  Chart.defaults.plugins.legend.position = 'top';
+
+  // Custom Chart.js Plugin: Center Text for Doughnut Chart
+  const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw(chart) {
+      const { ctx, chartArea: { width, height, top, left } } = chart;
+      ctx.save();
+      const values = (chart.data.datasets[0] && chart.data.datasets[0].data) || [];
+      const total = values.reduce((a, b) => a + b, 0);
+      const centerX = left + width / 2;
+      const centerY = top + height / 2;
+      
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Draw "IQC ทั้งหมด" label
+      ctx.font = 'bold 12.5px "Segoe UI", system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#5F5E5A'; // --t2
+      ctx.fillText('IQC ทั้งหมด', centerX, centerY - 10);
+      
+      // Draw count value
+      ctx.font = 'bold 24px "Segoe UI", system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#2C2C2A'; // --t1
+      ctx.fillText(total, centerX, centerY + 12);
+      ctx.restore();
+    }
+  };
+
+  // Custom Chart.js Plugin: Display data values at the end of horizontal bars
+  const barLabelsPlugin = {
+    id: 'barLabels',
+    afterDatasetDraw(chart, args) {
+      const { ctx, data, scales: { y } } = chart;
+      ctx.save();
+      ctx.font = 'bold 11px "Segoe UI", system-ui, -apple-system, sans-serif';
+      ctx.textBaseline = 'middle';
+
+      const dataset = data.datasets[args.index];
+      const meta = chart.getDatasetMeta(args.index);
+      const right = chart.chartArea.right;
+
+      meta.data.forEach((bar, index) => {
+        const val = String(dataset.data[index]);
+        const textWidth = ctx.measureText(val).width;
+        // ถ้าวางนอกแท่งแล้วล้นขอบ canvas → วางในแท่ง (ชิดขวาด้านใน, สีขาว)
+        if (bar.x + 6 + textWidth > right) {
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#fff';
+          ctx.fillText(val, bar.x - 6, bar.y);
+        } else {
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#2C2C2A'; // --t1
+          ctx.fillText(val, bar.x + 6, bar.y);
+        }
+      });
+      ctx.restore();
+    }
+  };
+
+  // Chart instances
+  let eqaChart = null;
+  let iqcTestChart = null;
+  let iqcInstrumentChart = null;
+
+  // Initialize summary values
+  function updateSummary() {
+    document.getElementById('iqc-open-val').textContent = MOCK.summary.iqcOpen;
+    document.getElementById('iqc-closed-val').textContent = MOCK.summary.iqcClosed;
+    document.getElementById('eqa-open-val').textContent = MOCK.summary.eqaOpen;
+    document.getElementById('eqa-closed-val').textContent = MOCK.summary.eqaClosed;
+  }
+
+  // Render or update charts based on current filter selection
+  function renderCharts() {
+    const programFilter = document.getElementById('filter-program').value;
+    const instrumentFilter = document.getElementById('filter-instrument').value;
+
+    // Filter EQA Grade Trend data
+    let filteredEqa = MOCK.eqaGradeTrend;
+    if (programFilter !== 'ทั้งหมด') {
+      filteredEqa = filteredEqa.filter(item => item.program === programFilter);
+    }
+
+    // Filter IQC by Instrument data
+    let filteredIqcInst = MOCK.iqcByInstrument;
+    if (instrumentFilter !== 'ทั้งหมด') {
+      filteredIqcInst = filteredIqcInst.filter(item => item.instrument === instrumentFilter);
+    }
+
+    // Destroy existing chart instances before rebuilding
+    if (eqaChart) eqaChart.destroy();
+    if (iqcTestChart) iqcTestChart.destroy();
+    if (iqcInstrumentChart) iqcInstrumentChart.destroy();
+
+    // 1. EQA Grade Trend stacked bar chart
+    const eqaCtx = document.getElementById('eqaChart').getContext('2d');
+    eqaChart = new Chart(eqaCtx, {
+      type: 'bar',
+      data: {
+        labels: filteredEqa.map(item => item.month),
+        datasets: [
+          {
+            label: 'Acceptable',
+            data: filteredEqa.map(item => item.acceptable),
+            backgroundColor: '#059669',
+            borderRadius: 4
+          },
+          {
+            label: 'Warning',
+            data: filteredEqa.map(item => item.warning),
+            backgroundColor: '#D97706',
+            borderRadius: 4
+          },
+          {
+            label: 'Unacceptable',
+            data: filteredEqa.map(item => item.unacceptable),
+            backgroundColor: '#DC2626',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              padding: 10
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false }
+          },
+          y: {
+            stacked: true,
+            ticks: { stepSize: 5 }
+          }
+        }
+      }
+    });
+
+    // 2. IQC by Test doughnut chart
+    const testCtx = document.getElementById('iqcTestChart').getContext('2d');
+    iqcTestChart = new Chart(testCtx, {
+      type: 'doughnut',
+      data: {
+        labels: MOCK.iqcByTest.map(item => item.test),
+        datasets: [{
+          data: MOCK.iqcByTest.map(item => item.count),
+          backgroundColor: [
+            '#059669', // Emerald Green
+            '#D97706', // Amber Orange
+            '#DC2626', // Red
+            '#4F46E5', // Indigo Blue
+            '#7C3AED', // Violet/Purple
+            '#DB2777', // Pink
+            '#0D9488'  // Teal
+          ],
+          borderWidth: 1,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              padding: 10
+            }
+          }
+        }
+      },
+      plugins: [centerTextPlugin]
+    });
+
+    // 3. IQC by Instrument horizontal bar chart
+    const instCtx = document.getElementById('iqcInstrumentChart').getContext('2d');
+    iqcInstrumentChart = new Chart(instCtx, {
+      type: 'bar',
+      data: {
+        labels: filteredIqcInst.map(item => item.instrument),
+        datasets: [{
+          label: 'จำนวนเคส',
+          data: filteredIqcInst.map(item => item.count),
+          backgroundColor: '#0C447C',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            grace: '10%',
+            grid: { display: false },
+            ticks: { stepSize: 1 }
+          },
+          y: {
+            grid: { display: false }
+          }
+        }
+      },
+      plugins: [barLabelsPlugin]
+    });
+  }
+
+  // Set up filter change listeners
+  document.getElementById('filters').addEventListener('change', renderCharts);
+
+  // Initial draw
+  updateSummary();
+  renderCharts();
+</script>
+</body>
+</html>
