@@ -441,11 +441,14 @@
 
   if (USE_DEMO) document.getElementById('demo').classList.add('show');
 
-  // Set global Chart.js defaults
-  Chart.defaults.font.family = '"Segoe UI", system-ui, -apple-system, sans-serif';
-  Chart.defaults.font.size = 12;
-  Chart.defaults.color = '#5F5E5A'; // --t2
-  Chart.defaults.plugins.legend.position = 'top';
+  // Set global Chart.js defaults — ต้องครอบ guard: ถ้า CDN/SRI fail แล้ว Chart undefined
+  // การแตะ Chart.defaults ที่ top-level จะ throw ReferenceError ก่อน loadDashboard() ทำงาน → หน้าเงียบ
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.font.family = '"Segoe UI", system-ui, -apple-system, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#5F5E5A'; // --t2
+    Chart.defaults.plugins.legend.position = 'top';
+  }
 
   // Custom Chart.js Plugin: Center Text for Doughnut Chart
   const centerTextPlugin = {
@@ -524,14 +527,28 @@
     const monthFilter = document.getElementById('filter-month').value;
     const programFilter = document.getElementById('filter-program').value;
     const instrumentFilter = document.getElementById('filter-instrument').value;
-    // เดือนไทย → เลขเดือน 1–12 (ทั้งหมด → null = ไม่กรอง)
-    const monthNum = monthFilter === 'ทั้งหมด' ? null : THAI_MONTHS.indexOf(monthFilter) + 1;
+    // เดือนไทย → เลขเดือน 1–12 (ทั้งหมด หรือ label เพี้ยน/หาไม่เจอ → null = ไม่กรอง, กันกราฟว่างเงียบ)
+    const monthIdx = THAI_MONTHS.indexOf(monthFilter);
+    const monthNum = (monthFilter === 'ทั้งหมด' || monthIdx < 0) ? null : monthIdx + 1;
 
     // Filter EQA Grade Trend data (ปี/เดือน/program — client-side)
     let filteredEqa = DATA.eqaGradeTrend;
     if (yearFilter !== 'ทั้งหมด') filteredEqa = filteredEqa.filter(item => String(item.year) === yearFilter);
     if (monthNum !== null) filteredEqa = filteredEqa.filter(item => item.month === monthNum);
     if (programFilter !== 'ทั้งหมด') filteredEqa = filteredEqa.filter(item => item.program === programFilter);
+
+    // ถ้าไม่เลือก program → รวมทุก program ต่อเดือน (กัน label เดือนซ้ำ เพราะ legend เป็นเกรด ไม่ใช่ program)
+    // เลือก program แล้ว → 1 bucket/เดือนอยู่แล้ว (backend group ตาม period|program)
+    let eqaSeries = filteredEqa;
+    if (programFilter === 'ทั้งหมด') {
+      const byPeriod = {};
+      filteredEqa.forEach(item => {
+        let b = byPeriod[item.period];
+        if (!b) b = byPeriod[item.period] = { period: item.period, monthLabel: item.monthLabel, acceptable: 0, warning: 0, unacceptable: 0 };
+        b.acceptable += item.acceptable; b.warning += item.warning; b.unacceptable += item.unacceptable;
+      });
+      eqaSeries = Object.keys(byPeriod).sort().map(k => byPeriod[k]); // period "YYYY-MM" → sort = เรียงเวลา
+    }
 
     // Filter IQC by Instrument data
     let filteredIqcInst = DATA.iqcByInstrument;
@@ -549,23 +566,23 @@
     eqaChart = new Chart(eqaCtx, {
       type: 'bar',
       data: {
-        labels: filteredEqa.map(item => item.monthLabel),
+        labels: eqaSeries.map(item => item.monthLabel),
         datasets: [
           {
             label: 'Acceptable',
-            data: filteredEqa.map(item => item.acceptable),
+            data: eqaSeries.map(item => item.acceptable),
             backgroundColor: '#059669',
             borderRadius: 4
           },
           {
             label: 'Warning',
-            data: filteredEqa.map(item => item.warning),
+            data: eqaSeries.map(item => item.warning),
             backgroundColor: '#D97706',
             borderRadius: 4
           },
           {
             label: 'Unacceptable',
-            data: filteredEqa.map(item => item.unacceptable),
+            data: eqaSeries.map(item => item.unacceptable),
             backgroundColor: '#DC2626',
             borderRadius: 4
           }
@@ -703,11 +720,15 @@
         if (!j.success) throw new Error(j.error || 'unknown error');
         DATA = j.data;
       }
-      // เติม dropdown จาก config (ถ้า backend ส่งมา) แล้ววาด
-      if (DATA.config) {
-        fillDropdown('filter-program', DATA.config.programs || []);
-        fillDropdown('filter-instrument', DATA.config.instruments || []);
-      }
+      // เติม dropdown: รวม config + ค่าที่ "พบจริงในข้อมูล" (กัน historical program/instrument ที่หลุด config
+      // → เห็นในกราฟ "ทั้งหมด" แต่กรองไม่ได้). union คงลำดับ config ก่อน แล้วต่อด้วยค่าที่เกินมา
+      const union = (cfg, seen) => { const out = (cfg || []).slice(); seen.forEach(v => { if (v && out.indexOf(v) < 0) out.push(v); }); return out; };
+      const cfg = DATA.config || {};
+      fillDropdown('filter-program', union(cfg.programs, (DATA.eqaGradeTrend || []).map(x => x.program)));
+      fillDropdown('filter-instrument', union(cfg.instruments, (DATA.iqcByInstrument || []).map(x => x.instrument)));
+      // เติมปีจากข้อมูลจริง (dynamic — กัน hardcode 2567/2568 ตกปีใหม่ เช่น 2569)
+      const years = [...new Set((DATA.eqaGradeTrend || []).map(x => String(x.year)))].sort((a, b) => Number(b) - Number(a));
+      fillDropdown('filter-year', years);
       updateSummary();
       renderCharts();
       setStatus('', false);
