@@ -108,6 +108,24 @@
     line-height: 1.5;
   }
 
+  /* สถานะ loading / error (กันหน้าเงียบ) */
+  .status {
+    display: none;
+    border-radius: var(--r);
+    padding: 12px 16px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: .5px solid var(--line);
+  }
+  .status.show { display: block; }
+  .status.error {
+    background: #FDECEC;
+    color: #B42318;
+    border-color: rgba(180, 35, 24, 0.25);
+  }
+
   /* Filter Bar */
   #filters {
     display: flex;
@@ -316,6 +334,9 @@
     </select>
   </form>
 
+  <!-- Status (loading / error) — กันหน้าเงียบ -->
+  <div id="status" class="status" role="status" aria-live="polite"></div>
+
   <!-- Summary Cards -->
   <section class="stats-grid" aria-label="สรุปสถิติจำนวนเคส">
     <div class="stat-card iqc-open">
@@ -365,50 +386,60 @@
 
   <footer>
     <p class="footer-note">
-      © กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล | ขณะนี้แสดงข้อมูลตัวอย่าง (mock) — ยังไม่เชื่อมต่อฐานข้อมูลจริง
+      © กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล | Dashboard ภาพรวมระบบ IQC/EQA Corrective Action
     </p>
   </footer>
 </div>
 
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Chart.js CDN + SRI (กันไฟล์ถูกแก้/เพี้ยน) · onerror = ไม่ปล่อยหน้าเงียบถ้า CDN ล่ม -->
+<script
+  src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+  integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
+  crossorigin="anonymous"
+  onerror="window.__chartLoadFailed = true;"></script>
 
 <script>
-  // MOCK DATA
-  const MOCK = {
+  // ===== API config (ADR-0005 — host ภายนอก GitHub Pages → fetch POST /exec) =====
+  // ไฟล์ที่ host บน gh-pages: แทน __SET_AFTER_DEPLOY__ ด้วย /exec จริง · เปิดไฟล์ในเครื่อง (placeholder) → DEMO
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQTFsGv2JhlhjF7-VjWw-hGI1eCcsj4Pv_FvRlKTFfuA0Cdb8Nnj6PJPi8Yhg42ZpH/exec';
+  const USE_DEMO = APPS_SCRIPT_URL.indexOf('http') !== 0;
+
+  // ชื่อย่อเดือนไทย index 0–11 (ตรงกับ dropdown filter-month + backend THAI_MONTH_ABBR_)
+  const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+  // palette โดนัท (วนรอบด้วย modulo เมื่อ test เกินจำนวนสี)
+  const DOUGHNUT_PALETTE = ['#059669', '#D97706', '#DC2626', '#4F46E5', '#7C3AED', '#DB2777', '#0D9488'];
+
+  // DEMO data (เปิดไฟล์ในเครื่อง) — โครงสร้างเดียวกับที่ getDashboardData คืน (raw ไม่กรอง)
+  const DEMO_DATA = {
     summary: { iqcOpen: 5, iqcClosed: 12, eqaOpen: 2, eqaClosed: 8 },
     eqaGradeTrend: [
-      { month: "ม.ค. 68", program: "EQAC", acceptable: 20, warning: 2, unacceptable: 1 },
-      { month: "ก.พ. 68", program: "EQAC", acceptable: 22, warning: 1, unacceptable: 0 },
-      { month: "มี.ค. 68", program: "B-EQAM", acceptable: 7, warning: 1, unacceptable: 1 },
-      { month: "เม.ย. 68", program: "EQAC", acceptable: 21, warning: 2, unacceptable: 1 },
-      { month: "พ.ค. 68", program: "EQAH", acceptable: 4, warning: 0, unacceptable: 0 },
-      { month: "มิ.ย. 68", program: "EQAC", acceptable: 19, warning: 3, unacceptable: 2 },
-      { month: "มิ.ย. 68", program: "EQAT", acceptable: 6, warning: 1, unacceptable: 0 }
+      { period: "2025-01", year: 2568, month: 1, monthLabel: "ม.ค. 68", program: "EQAC", acceptable: 20, warning: 2, unacceptable: 1 },
+      { period: "2025-02", year: 2568, month: 2, monthLabel: "ก.พ. 68", program: "EQAC", acceptable: 22, warning: 1, unacceptable: 0 },
+      { period: "2025-03", year: 2568, month: 3, monthLabel: "มี.ค. 68", program: "B-EQAM", acceptable: 7, warning: 1, unacceptable: 1 },
+      { period: "2025-04", year: 2568, month: 4, monthLabel: "เม.ย. 68", program: "EQAC", acceptable: 21, warning: 2, unacceptable: 1 },
+      { period: "2025-05", year: 2568, month: 5, monthLabel: "พ.ค. 68", program: "EQAH", acceptable: 4, warning: 0, unacceptable: 0 },
+      { period: "2025-06", year: 2568, month: 6, monthLabel: "มิ.ย. 68", program: "EQAC", acceptable: 19, warning: 3, unacceptable: 2 },
+      { period: "2025-06", year: 2568, month: 6, monthLabel: "มิ.ย. 68", program: "EQAT", acceptable: 6, warning: 1, unacceptable: 0 }
     ],
     iqcByTest: [
-      { test: "Glucose", count: 4 },
-      { test: "HbA1c", count: 3 },
-      { test: "Creatinine", count: 2 },
-      { test: "AST", count: 2 },
-      { test: "ALT", count: 2 },
-      { test: "Sodium", count: 2 },
-      { test: "Potassium", count: 2 }
+      { test: "Glucose", count: 4 }, { test: "HbA1c", count: 3 }, { test: "Creatinine", count: 2 },
+      { test: "AST", count: 2 }, { test: "ALT", count: 2 }, { test: "Sodium", count: 2 }, { test: "Potassium", count: 2 }
     ],
     iqcByInstrument: [
-      { instrument: "Cobas c311", count: 7 },
-      { instrument: "Cobas c111", count: 4 },
-      { instrument: "ABL90", count: 3 },
-      { instrument: "HbA1c Analyzer", count: 2 },
-      { instrument: "Sysmex XN-350", count: 1 }
-    ]
+      { instrument: "Cobas c311", count: 7 }, { instrument: "Cobas c111", count: 4 },
+      { instrument: "ABL90", count: 3 }, { instrument: "HbA1c Analyzer", count: 2 }, { instrument: "Sysmex XN-350", count: 1 }
+    ],
+    config: {
+      programs: ["EQAC", "B-EQAM", "EQAH", "EQAT"],
+      instruments: ["Cobas c311", "Cobas c111", "ABL90", "HbA1c Analyzer", "Sysmex XN-350"]
+    }
   };
 
-  // Check and show DEMO banner when running locally (file:// or localhost)
-  const local = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  if (local) {
-    document.getElementById('demo').classList.add('show');
-  }
+  // ข้อมูลจริงที่โหลดมา (เริ่มเป็น null จนกว่า loadDashboard จะเสร็จ)
+  let DATA = null;
+
+  if (USE_DEMO) document.getElementById('demo').classList.add('show');
 
   // Set global Chart.js defaults
   Chart.defaults.font.family = '"Segoe UI", system-ui, -apple-system, sans-serif';
@@ -481,25 +512,29 @@
 
   // Initialize summary values
   function updateSummary() {
-    document.getElementById('iqc-open-val').textContent = MOCK.summary.iqcOpen;
-    document.getElementById('iqc-closed-val').textContent = MOCK.summary.iqcClosed;
-    document.getElementById('eqa-open-val').textContent = MOCK.summary.eqaOpen;
-    document.getElementById('eqa-closed-val').textContent = MOCK.summary.eqaClosed;
+    document.getElementById('iqc-open-val').textContent = DATA.summary.iqcOpen;
+    document.getElementById('iqc-closed-val').textContent = DATA.summary.iqcClosed;
+    document.getElementById('eqa-open-val').textContent = DATA.summary.eqaOpen;
+    document.getElementById('eqa-closed-val').textContent = DATA.summary.eqaClosed;
   }
 
   // Render or update charts based on current filter selection
   function renderCharts() {
+    const yearFilter = document.getElementById('filter-year').value;
+    const monthFilter = document.getElementById('filter-month').value;
     const programFilter = document.getElementById('filter-program').value;
     const instrumentFilter = document.getElementById('filter-instrument').value;
+    // เดือนไทย → เลขเดือน 1–12 (ทั้งหมด → null = ไม่กรอง)
+    const monthNum = monthFilter === 'ทั้งหมด' ? null : THAI_MONTHS.indexOf(monthFilter) + 1;
 
-    // Filter EQA Grade Trend data
-    let filteredEqa = MOCK.eqaGradeTrend;
-    if (programFilter !== 'ทั้งหมด') {
-      filteredEqa = filteredEqa.filter(item => item.program === programFilter);
-    }
+    // Filter EQA Grade Trend data (ปี/เดือน/program — client-side)
+    let filteredEqa = DATA.eqaGradeTrend;
+    if (yearFilter !== 'ทั้งหมด') filteredEqa = filteredEqa.filter(item => String(item.year) === yearFilter);
+    if (monthNum !== null) filteredEqa = filteredEqa.filter(item => item.month === monthNum);
+    if (programFilter !== 'ทั้งหมด') filteredEqa = filteredEqa.filter(item => item.program === programFilter);
 
     // Filter IQC by Instrument data
-    let filteredIqcInst = MOCK.iqcByInstrument;
+    let filteredIqcInst = DATA.iqcByInstrument;
     if (instrumentFilter !== 'ทั้งหมด') {
       filteredIqcInst = filteredIqcInst.filter(item => item.instrument === instrumentFilter);
     }
@@ -514,7 +549,7 @@
     eqaChart = new Chart(eqaCtx, {
       type: 'bar',
       data: {
-        labels: filteredEqa.map(item => item.month),
+        labels: filteredEqa.map(item => item.monthLabel),
         datasets: [
           {
             label: 'Acceptable',
@@ -566,18 +601,11 @@
     iqcTestChart = new Chart(testCtx, {
       type: 'doughnut',
       data: {
-        labels: MOCK.iqcByTest.map(item => item.test),
+        labels: DATA.iqcByTest.map(item => item.test),
         datasets: [{
-          data: MOCK.iqcByTest.map(item => item.count),
-          backgroundColor: [
-            '#059669', // Emerald Green
-            '#D97706', // Amber Orange
-            '#DC2626', // Red
-            '#4F46E5', // Indigo Blue
-            '#7C3AED', // Violet/Purple
-            '#DB2777', // Pink
-            '#0D9488'  // Teal
-          ],
+          data: DATA.iqcByTest.map(item => item.count),
+          // วนสีจาก palette (ข้อมูลจริงอาจมี test มากกว่าจำนวนสี → ใช้ modulo กันสี undefined)
+          backgroundColor: DATA.iqcByTest.map((item, i) => DOUGHNUT_PALETTE[i % DOUGHNUT_PALETTE.length]),
           borderWidth: 1,
           borderColor: '#fff'
         }]
@@ -636,12 +664,63 @@
     });
   }
 
-  // Set up filter change listeners
-  document.getElementById('filters').addEventListener('change', renderCharts);
+  // เติม option ใน dropdown program/instrument จาก config จริง (คงตัวเลือก "ทั้งหมด" เดิมไว้)
+  function fillDropdown(id, values) {
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    // ลบ option ทั้งหมดยกเว้นตัวแรก (ทั้งหมด)
+    while (sel.options.length > 1) sel.remove(1);
+    values.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    // คง selection เดิมถ้ายังมีอยู่
+    if ([...sel.options].some(o => o.value === current)) sel.value = current;
+  }
 
-  // Initial draw
-  updateSummary();
-  renderCharts();
+  // แสดง/ซ่อนสถานะ (loading / error) แบบไม่ปล่อยหน้าเงียบ
+  const statusEl = document.getElementById('status');
+  function setStatus(html, isError) {
+    statusEl.innerHTML = html || '';
+    statusEl.className = 'status' + (html ? ' show' : '') + (isError ? ' error' : '');
+  }
+
+  // โหลด dashboard: DEMO (เปิดไฟล์ในเครื่อง) หรือ fetch /exec จริง
+  async function loadDashboard() {
+    setStatus('⏳ กำลังโหลดข้อมูล...', false);
+    try {
+      if (window.__chartLoadFailed || typeof Chart === 'undefined') {
+        throw new Error('โหลดไลบรารีกราฟ (Chart.js) ไม่สำเร็จ — ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรช');
+      }
+      if (USE_DEMO) {
+        DATA = DEMO_DATA;
+      } else {
+        // ไม่ใส่ header Content-Type → text/plain → ไม่เกิด CORS preflight (BacBuD pattern, ADR-0005)
+        const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getDashboardData' }) });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const j = await res.json();
+        if (!j.success) throw new Error(j.error || 'unknown error');
+        DATA = j.data;
+      }
+      // เติม dropdown จาก config (ถ้า backend ส่งมา) แล้ววาด
+      if (DATA.config) {
+        fillDropdown('filter-program', DATA.config.programs || []);
+        fillDropdown('filter-instrument', DATA.config.instruments || []);
+      }
+      updateSummary();
+      renderCharts();
+      setStatus('', false);
+    } catch (err) {
+      setStatus('⚠️ โหลดข้อมูลไม่สำเร็จ: ' + (err && err.message || err), true);
+    }
+  }
+
+  // Set up filter change listeners (เฉพาะตอนมีข้อมูลแล้ว)
+  document.getElementById('filters').addEventListener('change', () => { if (DATA) renderCharts(); });
+
+  // Initial load
+  loadDashboard();
 </script>
 </body>
 </html>
