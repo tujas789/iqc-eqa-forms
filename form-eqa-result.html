@@ -70,7 +70,7 @@
       <div class="grid">
         <div class="field"><label>Trial No.</label><input id="trial" placeholder="เช่น 356/2026"></div>
         <div class="field"><label>Participant ID</label><input id="participant"></div>
-        <div class="field"><label>วันที่ออกผล (Issue)</label><input type="date" id="issue"></div>
+        <div class="field"><label>วันที่ออกผล (Issue) *</label><input type="date" id="issue" required></div>
         <div class="field"><label>เครื่องที่ใช้ส่งผล</label><select id="instrument"></select></div>
       </div>
       <div class="field"><label>ผู้ทบทวน (Reviewer)</label><input id="reviewer"></div>
@@ -238,6 +238,8 @@
     var program = document.getElementById('program').value;
     if(!token) return showMsg('err','กรุณาใส่ Edit Token ก่อนบันทึก');
     if(!program) return showMsg('err','กรุณาเลือก Program');
+    // ไม่มี <form> → required ไม่ enforce เอง ต้อง guard ที่นี่ (บทเรียน EQAR-2569-029 กรอกวันผิด/ไม่กรอก)
+    if(!document.getElementById('issue').value) return showMsg('err','กรุณาระบุวันที่ออกผล (Issue) ตามใบรายงาน — backend จะไม่รับถ้าไม่มี');
 
     var analytes = [];
     var rows = document.querySelectorAll('#rows tr');
