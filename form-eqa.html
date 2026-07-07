@@ -6,16 +6,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root{
-    --bg:#f7f6f2; --card:#fff; --t1:#2C2C2A; --t2:#5F5E5A; --t3:#9b9a94;
-    --line:rgba(0,0,0,.14); --accent:#0C447C; --accent-bg:#E6F1FB;
+    /* theme: Editorial Docs kit — ตรงกับ index.html (แก้ทั้งชุด = --accent ค่าเดียว) */
+    --bg:#ffffff; --card:#fff; --t1:#1a1a1a; --t2:#555; --t3:#9b9a94;
+    --line:#d9d9d9; --accent:#2563eb; --accent-bg:#eef4fd;
     --ok:#0F6E56; --ok-bg:#E1F5EE; --warn:#854F0B; --warn-bg:#FAEEDA; --bad:#791F1F; --bad-bg:#FCEBEB;
-    --r:10px;
+    --r:8px;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--t1);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;}
-  .wrap{max-width:760px;margin:0 auto;padding:18px 14px 60px;}
-  h1{font-size:19px;font-weight:600;margin:0 0 2px;}
-  .sub{color:var(--t2);font-size:13px;margin:0 0 16px;}
+  body{margin:0;background:var(--bg);color:var(--t1);font-family:-apple-system,"Segoe UI","Noto Sans Thai",system-ui,sans-serif;font-size:14px;line-height:1.5;}
+  .wrap{max-width:760px;margin:0 auto;padding:32px 14px 60px;}
+  .kicker{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+  .kicker svg{width:13px;height:13px;fill:currentColor;}
+  h1{font-size:23px;font-weight:800;letter-spacing:-0.4px;line-height:1.2;margin:0;padding-bottom:.5rem;border-bottom:3px solid var(--t1);}
+  .sub{color:var(--t2);font-size:13px;margin:12px 0 20px;line-height:1.55;}
   .card{background:var(--card);border:.5px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;}
   .card h2{font-size:14px;font-weight:600;margin:0 0 2px;color:var(--accent);}
   .card .iso{font-size:11px;color:var(--t3);margin:0 0 10px;}
@@ -40,8 +43,12 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="kicker">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/></svg>
+    กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล
+  </div>
   <h1>EQA Corrective Action — บันทึกเคสไม่ผ่าน</h1>
-  <p class="sub">เคส EQA/PT ที่ไม่ผ่านเกณฑ์ + การแก้ไขตาม ISO 15189:2022 §8.7 · กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล</p>
+  <p class="sub">เคส EQA/PT ที่ไม่ผ่านเกณฑ์ + การแก้ไขตาม ISO 15189:2022 §8.7</p>
 
   <div id="loading">⏳ กำลังโหลดข้อมูล...</div>
 
@@ -170,7 +177,7 @@
 
   api('getCorrectiveFormData')
     .then(onData)
-    .catch(function(e){ document.getElementById('loading').innerHTML = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
+    .catch(function(e){ document.getElementById('loading').textContent = '❌ โหลดข้อมูลไม่ได้: ' + e.message; });
 
   function onData(d){
     DATA = d;
@@ -243,12 +250,30 @@
 
     var status = document.getElementById('status').value;
     var effectiveness = document.getElementById('effectiveness').value;
+    var classification = [].map.call(document.querySelectorAll('.cls:checked'), function(c){ return c.value; });
+
+    // ปิดงาน (Closed): mirror ชุดที่ server บังคับ (Records.gs submitEQA requiredOnClose + §8.7)
+    // เก็บทุกช่องที่ขาดแล้วโชว์ทีเดียว — ผู้ใช้เห็นครบตั้งแต่หน้า form ไม่ต้องโดน error ทีละอย่าง
     if(status === 'Closed'){
       if(effectiveness !== 'ยืนยันได้ผล') return showMsg('err','ปิดงาน (Closed) ได้เฉพาะเมื่อ Effectiveness = "ยืนยันได้ผล" — ถ้ายังรอทวนสอบให้เลือก Pending');
-      if(!document.getElementById('actionResult').value) return showMsg('err','ปิดงาน (Closed) ต้องระบุ ActionResult ก่อน (rule #2)');
+      var requiredOnClose = [
+        ['assessmentCriteria','เกณฑ์การประเมิน'],
+        ['patientImpact','ผลกระทบต่อผู้ป่วย'],
+        ['docProblem','ปัญหาจากงานเอกสาร'],
+        ['samplePrepProblem','ปัญหาจากการเตรียมตัวอย่าง'],
+        ['rootCause','สาเหตุที่แท้จริง'],
+        ['similarNCCheck','การตรวจขอบเขต NC'],
+        ['correctiveAction','การแก้ที่รากเหง้า'],
+        ['actionResult','ผลการแก้เฉพาะหน้า'],
+        ['effectivenessEvidence','หลักฐานยืนยันประสิทธิผล']
+      ];
+      var miss = [];
+      requiredOnClose.forEach(function(f){ if(!val(f[0])) miss.push(f[1]); });
+      if(!classification.length) miss.push('หมวดของปัญหา (Classification)');
+      var pi = document.getElementById('patientImpact').value;
+      if(pi && pi !== 'ไม่กระทบผลผู้ป่วย' && !val('patientImpactDetail')) miss.push('การจัดการผลผู้ป่วย (PatientImpactDetail)');
+      if(miss.length) return showMsg('err','ปิดงาน (Closed) ต้องกรอกให้ครบตาม CAPA §8.7 — ยังขาด: ' + miss.join(', '));
     }
-
-    var classification = [].map.call(document.querySelectorAll('.cls:checked'), function(c){ return c.value; });
 
     var rec = {
       Program: program,
@@ -289,16 +314,17 @@
   function onSaved(res){
     var btn = document.getElementById('submit');
     btn.disabled=false; btn.textContent='บันทึกเคส';
-    showMsg('ok','✅ บันทึกแล้ว: <b>'+res.id+'</b> (สถานะ '+res.status+')');
+    showMsg('ok','✅ บันทึกแล้ว: '+res.id+' (สถานะ '+res.status+')');
     window.scrollTo(0,0);
   }
 
   function val(id){ return document.getElementById(id).value.trim(); }
 
-  function showMsg(type, html){
+  // render เป็น textContent เสมอ — ข้อความ error บาง backend echo ค่า input กลับมา (กัน HTML injection)
+  function showMsg(type, text){
     var m = document.getElementById('msg');
     m.className = 'msg show ' + type;
-    m.innerHTML = html;
+    m.textContent = text;
     window.scrollTo(0,0);
   }
 </script>

@@ -7,15 +7,16 @@
 <title>Dashboard สรุปภาพรวม - IQC/EQA Corrective Action System</title>
 <style>
   :root {
-    --bg: #f7f6f2;
+    /* theme: Editorial Docs kit — ตรงกับ index.html */
+    --bg: #ffffff;
     --card: #fff;
-    --t1: #2C2C2A;
-    --t2: #5F5E5A;
+    --t1: #1a1a1a;
+    --t2: #555;
     --t3: #9b9a94;
-    --line: rgba(0,0,0,.12);
-    --accent: #0C447C;
-    --accent-bg: #E6F1FB;
-    --r: 12px;
+    --line: #d9d9d9;
+    --accent: #2563eb;
+    --accent-bg: #eef4fd;
+    --r: 8px;
   }
 
   * {
@@ -27,7 +28,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--t1);
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, "Segoe UI", "Noto Sans Thai", system-ui, sans-serif;
     font-size: 14px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -62,18 +63,34 @@
     text-decoration: underline;
   }
 
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+
+  .kicker svg { width: 13px; height: 13px; fill: currentColor; }
+
   h1 {
     font-size: 24px;
-    font-weight: 700;
-    margin: 0 0 6px;
-    color: var(--accent);
-    letter-spacing: -0.3px;
+    font-weight: 800;
+    margin: 0;
+    padding-bottom: .5rem;
+    border-bottom: 3px solid var(--t1);
+    letter-spacing: -0.4px;
+    line-height: 1.2;
   }
 
   .sub {
     color: var(--t2);
     font-size: 14px;
-    margin: 0;
+    margin: 12px 0 0;
     line-height: 1.5;
   }
 
@@ -316,6 +333,10 @@
       </svg>
       กลับหน้าหลัก
     </a>
+    <div class="kicker">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/></svg>
+      กลุ่มงานเทคนิคการแพทย์ รพ.พิษณุโลกฮอสพิทอล
+    </div>
     <h1>Dashboard สรุปภาพรวม</h1>
     <p class="sub">ข้อมูลสถิติ IQC/EQA Corrective Action</p>
   </header>
