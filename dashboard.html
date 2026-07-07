@@ -165,6 +165,41 @@
     outline: 2px solid var(--accent-bg);
   }
 
+  /* Per-chart filter row (แยกตามกราฟ — ไม่ใช่ global) */
+  .chart-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0 0 16px 0;
+  }
+
+  /* ป้ายบอก scope: summary = ทั้งหมด, กราฟ IQC by Test = ทั้งหมด */
+  .section-hint {
+    font-size: 12px;
+    color: var(--t2);
+    margin: 0 0 10px 0;
+  }
+  .chart-hint {
+    font-size: 12px;
+    color: var(--t2);
+    margin: -8px 0 16px 0;
+  }
+
+  /* Empty state ต่อกราฟ (แทน canvas ว่างเงียบ) */
+  .chart-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 16px;
+    margin: 0;
+    color: var(--t2);
+    font-size: 14px;
+  }
+  .chart-empty[hidden] { display: none; }
+
   /* Summary Grid */
   .stats-grid {
     display: grid;
@@ -295,49 +330,11 @@
     </div>
   </div>
 
-  <!-- Filter Bar -->
-  <form id="filters" autocomplete="off" onsubmit="return false;">
-    <select id="filter-year" class="filter-select" aria-label="กรองข้อมูลตามปี">
-      <option value="ทั้งหมด">ปี: ทั้งหมด</option>
-      <option value="2567">2567</option>
-      <option value="2568">2568</option>
-    </select>
-    <select id="filter-month" class="filter-select" aria-label="กรองข้อมูลตามเดือน">
-      <option value="ทั้งหมด">เดือน: ทั้งหมด</option>
-      <option value="ม.ค.">ม.ค.</option>
-      <option value="ก.พ.">ก.พ.</option>
-      <option value="มี.ค.">มี.ค.</option>
-      <option value="เม.ย.">เม.ย.</option>
-      <option value="พ.ค.">พ.ค.</option>
-      <option value="มิ.ย.">มิ.ย.</option>
-      <option value="ก.ค.">ก.ค.</option>
-      <option value="ส.ค.">ส.ค.</option>
-      <option value="ก.ย.">ก.ย.</option>
-      <option value="ต.ค.">ต.ค.</option>
-      <option value="พ.ย.">พ.ย.</option>
-      <option value="ธ.ค.">ธ.ค.</option>
-    </select>
-    <select id="filter-program" class="filter-select" aria-label="กรองข้อมูลตาม Program EQA">
-      <option value="ทั้งหมด">Program EQA: ทั้งหมด</option>
-      <option value="EQAC">EQAC</option>
-      <option value="B-EQAM">B-EQAM</option>
-      <option value="EQAH">EQAH</option>
-      <option value="EQAT">EQAT</option>
-    </select>
-    <select id="filter-instrument" class="filter-select" aria-label="กรองข้อมูลตามเครื่องมือ IQC">
-      <option value="ทั้งหมด">เครื่องมือ IQC: ทั้งหมด</option>
-      <option value="Cobas c311">Cobas c311</option>
-      <option value="Cobas c111">Cobas c111</option>
-      <option value="ABL90">ABL90</option>
-      <option value="HbA1c Analyzer">HbA1c Analyzer</option>
-      <option value="Sysmex XN-350">Sysmex XN-350</option>
-    </select>
-  </form>
-
   <!-- Status (loading / error) — กันหน้าเงียบ -->
   <div id="status" class="status" role="status" aria-live="polite"></div>
 
-  <!-- Summary Cards -->
+  <!-- Summary Cards — ภาพรวมทั้งหมด (ไม่ผูกกับตัวกรอง เพราะ IQC/EQA คนละมิติ ดู ADR/หมายเหตุ P2) -->
+  <p class="section-hint">📊 ภาพรวมทั้งหมด — ตัวเลขสรุปนับทุกเคส ไม่ขึ้นกับตัวกรองของกราฟด้านล่าง</p>
   <section class="stats-grid" aria-label="สรุปสถิติจำนวนเคส">
     <div class="stat-card iqc-open">
       <div id="iqc-open-val" class="stat-val orange">-</div>
@@ -359,27 +356,59 @@
 
   <!-- Charts -->
   <main>
-    <!-- E1 EQA Grade Trend -->
+    <!-- E1 EQA Grade Trend — filter: ปี/เดือน/program (คุมเฉพาะกราฟนี้) -->
     <article class="chart-card">
       <h2>สถิติเกรด EQA รายเดือน (EQA Grade Trend)</h2>
+      <div class="chart-filters">
+        <select id="filter-year" class="filter-select" aria-label="กรองกราฟ EQA ตามปี">
+          <option value="ทั้งหมด">ปี: ทั้งหมด</option>
+        </select>
+        <select id="filter-month" class="filter-select" aria-label="กรองกราฟ EQA ตามเดือน">
+          <option value="ทั้งหมด">เดือน: ทั้งหมด</option>
+          <option value="ม.ค.">ม.ค.</option>
+          <option value="ก.พ.">ก.พ.</option>
+          <option value="มี.ค.">มี.ค.</option>
+          <option value="เม.ย.">เม.ย.</option>
+          <option value="พ.ค.">พ.ค.</option>
+          <option value="มิ.ย.">มิ.ย.</option>
+          <option value="ก.ค.">ก.ค.</option>
+          <option value="ส.ค.">ส.ค.</option>
+          <option value="ก.ย.">ก.ย.</option>
+          <option value="ต.ค.">ต.ค.</option>
+          <option value="พ.ย.">พ.ย.</option>
+          <option value="ธ.ค.">ธ.ค.</option>
+        </select>
+        <select id="filter-program" class="filter-select" aria-label="กรองกราฟ EQA ตาม Program">
+          <option value="ทั้งหมด">Program: ทั้งหมด</option>
+        </select>
+      </div>
       <div class="chart-container">
         <canvas id="eqaChart" aria-label="กราฟแท่งแนวตั้งแสดงเกรดการประเมิน EQA แยกรายเดือน" role="img"></canvas>
+        <p class="chart-empty" id="eqaEmpty" hidden>ไม่มีข้อมูล EQA ตามตัวกรองที่เลือก</p>
       </div>
     </article>
 
-    <!-- E2 IQC by Test -->
+    <!-- E2 IQC by Test — all-time (ไม่มีตัวกรอง เพราะ backend ไม่ส่งมิติ test-รายเดือน มา) -->
     <article class="chart-card">
       <h2>สัดส่วนเคส IQC แยกตามรายการทดสอบ (IQC by Test)</h2>
+      <p class="chart-hint">นับทุกเคส IQC ทั้งหมด — ไม่ผูกกับตัวกรอง</p>
       <div class="chart-container">
         <canvas id="iqcTestChart" aria-label="กราฟโดนัทแสดงสัดส่วนจำนวนเคส IQC แยกตามรายการทดสอบ" role="img"></canvas>
+        <p class="chart-empty" id="iqcTestEmpty" hidden>ยังไม่มีข้อมูล IQC</p>
       </div>
     </article>
 
-    <!-- E3 IQC by Instrument -->
+    <!-- E3 IQC by Instrument — filter: instrument (คุมเฉพาะกราฟนี้) -->
     <article class="chart-card">
       <h2>จำนวนเคส IQC แยกตามเครื่องวิเคราะห์ (IQC by Instrument)</h2>
+      <div class="chart-filters">
+        <select id="filter-instrument" class="filter-select" aria-label="กรองกราฟ IQC ตามเครื่องมือ">
+          <option value="ทั้งหมด">เครื่องมือ: ทั้งหมด</option>
+        </select>
+      </div>
       <div class="chart-container">
         <canvas id="iqcInstrumentChart" aria-label="กราฟแท่งแนวนอนแสดงจำนวนเคส IQC แยกตามเครื่องมือวิเคราะห์" role="img"></canvas>
+        <p class="chart-empty" id="iqcInstrumentEmpty" hidden>ไม่มีข้อมูล IQC ตามตัวกรองที่เลือก</p>
       </div>
     </article>
   </main>
@@ -400,7 +429,7 @@
 
 <script>
   // ===== API config (ADR-0005 — host ภายนอก GitHub Pages → fetch POST /exec) =====
-  // ไฟล์ที่ host บน gh-pages: แทน __SET_AFTER_DEPLOY__ ด้วย /exec จริง · เปิดไฟล์ในเครื่อง (placeholder) → DEMO
+  // ไฟล์ที่ host บน gh-pages: แทน https://script.google.com/macros/s/AKfycbzQTFsGv2JhlhjF7-VjWw-hGI1eCcsj4Pv_FvRlKTFfuA0Cdb8Nnj6PJPi8Yhg42ZpH/exec ด้วย /exec จริง · เปิดไฟล์ในเครื่อง (placeholder) → DEMO
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQTFsGv2JhlhjF7-VjWw-hGI1eCcsj4Pv_FvRlKTFfuA0Cdb8Nnj6PJPi8Yhg42ZpH/exec';
   const USE_DEMO = APPS_SCRIPT_URL.indexOf('http') !== 0;
 
@@ -521,6 +550,20 @@
     document.getElementById('eqa-closed-val').textContent = DATA.summary.eqaClosed;
   }
 
+  // มีข้อมูล → build กราฟ · ว่าง → ซ่อน canvas + โชว์ข้อความ empty (คืน null ให้ตัวแปร chart)
+  function renderOrEmpty(hasData, canvasId, emptyId, buildFn) {
+    const canvas = document.getElementById(canvasId);
+    const empty = document.getElementById(emptyId);
+    if (!hasData) {
+      canvas.style.display = 'none';
+      empty.hidden = false;
+      return null;
+    }
+    canvas.style.display = '';
+    empty.hidden = true;
+    return buildFn(canvas.getContext('2d'));
+  }
+
   // Render or update charts based on current filter selection
   function renderCharts() {
     const yearFilter = document.getElementById('filter-year').value;
@@ -561,9 +604,8 @@
     if (iqcTestChart) iqcTestChart.destroy();
     if (iqcInstrumentChart) iqcInstrumentChart.destroy();
 
-    // 1. EQA Grade Trend stacked bar chart
-    const eqaCtx = document.getElementById('eqaChart').getContext('2d');
-    eqaChart = new Chart(eqaCtx, {
+    // 1. EQA Grade Trend stacked bar chart (dataset ว่าง → แสดงข้อความแทน canvas ว่างเงียบ)
+    eqaChart = renderOrEmpty(eqaSeries.length > 0, 'eqaChart', 'eqaEmpty', (eqaCtx) => new Chart(eqaCtx, {
       type: 'bar',
       data: {
         labels: eqaSeries.map(item => item.monthLabel),
@@ -611,11 +653,10 @@
           }
         }
       }
-    });
+    }));
 
-    // 2. IQC by Test doughnut chart
-    const testCtx = document.getElementById('iqcTestChart').getContext('2d');
-    iqcTestChart = new Chart(testCtx, {
+    // 2. IQC by Test doughnut chart (dataset ว่าง → แสดงข้อความแทน)
+    iqcTestChart = renderOrEmpty((DATA.iqcByTest || []).length > 0, 'iqcTestChart', 'iqcTestEmpty', (testCtx) => new Chart(testCtx, {
       type: 'doughnut',
       data: {
         labels: DATA.iqcByTest.map(item => item.test),
@@ -642,11 +683,10 @@
         }
       },
       plugins: [centerTextPlugin]
-    });
+    }));
 
-    // 3. IQC by Instrument horizontal bar chart
-    const instCtx = document.getElementById('iqcInstrumentChart').getContext('2d');
-    iqcInstrumentChart = new Chart(instCtx, {
+    // 3. IQC by Instrument horizontal bar chart (dataset ว่าง → แสดงข้อความแทน)
+    iqcInstrumentChart = renderOrEmpty(filteredIqcInst.length > 0, 'iqcInstrumentChart', 'iqcInstrumentEmpty', (instCtx) => new Chart(instCtx, {
       type: 'bar',
       data: {
         labels: filteredIqcInst.map(item => item.instrument),
@@ -678,7 +718,7 @@
         }
       },
       plugins: [barLabelsPlugin]
-    });
+    }));
   }
 
   // เติม option ใน dropdown program/instrument จาก config จริง (คงตัวเลือก "ทั้งหมด" เดิมไว้)
@@ -698,9 +738,9 @@
 
   // แสดง/ซ่อนสถานะ (loading / error) แบบไม่ปล่อยหน้าเงียบ
   const statusEl = document.getElementById('status');
-  function setStatus(html, isError) {
-    statusEl.innerHTML = html || '';
-    statusEl.className = 'status' + (html ? ' show' : '') + (isError ? ' error' : '');
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg || ''; // plain text — กัน injection จาก err.message (สอดคล้อง showMsg ในฟอร์มอื่น)
+    statusEl.className = 'status' + (msg ? ' show' : '') + (isError ? ' error' : '');
   }
 
   // โหลด dashboard: DEMO (เปิดไฟล์ในเครื่อง) หรือ fetch /exec จริง
@@ -737,8 +777,10 @@
     }
   }
 
-  // Set up filter change listeners (เฉพาะตอนมีข้อมูลแล้ว)
-  document.getElementById('filters').addEventListener('change', () => { if (DATA) renderCharts(); });
+  // Filter อยู่แยกในแต่ละการ์ดกราฟ (ไม่ใช่ global) — delegate change จาก .filter-select ทุกตัว
+  document.addEventListener('change', (e) => {
+    if (e.target.classList && e.target.classList.contains('filter-select') && DATA) renderCharts();
+  });
 
   // Initial load
   loadDashboard();
